@@ -24,6 +24,8 @@ environment:
   # No fbx sdk
   - env_cmake_generator: "Visual Studio 14 2015"
     env_cmake_configuration: Release
+  - env_cmake_generator: "Visual Studio 15 2017"
+    env_cmake_configuration: Release
 
 install:
 # Setup Fbx sdk
