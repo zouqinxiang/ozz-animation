@@ -1,7 +1,12 @@
 version: '{build}'
 
+image: Visual Studio 2017
+
 environment:
   matrix:
+  # Testing VS15 2017
+  - env_cmake_generator: "Visual Studio 15 2017"
+    env_cmake_configuration: Release
   # Comilers matrix
   - env_cmake_generator: "Visual Studio 11 2012"
     env_cmake_configuration: Debug
@@ -24,8 +29,7 @@ environment:
   # No fbx sdk
   - env_cmake_generator: "Visual Studio 14 2015"
     env_cmake_configuration: Release
-  - env_cmake_generator: "Visual Studio 15 2017"
-    env_cmake_configuration: Release
+
 
 install:
 # Setup Fbx sdk
