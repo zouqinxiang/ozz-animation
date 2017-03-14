@@ -419,13 +419,13 @@ TEST(NormalizeFloat, ozz_simd_math) {
   const SimdFloat4 safe4 = ozz::math::NormalizeSafe4(f, unit);
   EXPECT_SIMDFLOAT_EQ(safe4, .1084652f, .2169305f, .433861f, .8677219f);
   EXPECT_SIMDINT_EQ(ozz::math::IsNormalized4(safe4), 0xffffffff, 0, 0, 0);
-//  const SimdFloat4 safer4 = ozz::math::NormalizeSafe4(zero, unit);
-//  EXPECT_SIMDFLOAT_EQ(safer4, 1.f, 0.f, 0.f, 0.f);
+  const SimdFloat4 safer4 = ozz::math::NormalizeSafe4(zero, unit);
+  EXPECT_SIMDFLOAT_EQ(safer4, 1.f, 0.f, 0.f, 0.f);
   const SimdFloat4 safe_est4 = ozz::math::NormalizeSafeEst4(f, unit);
   EXPECT_SIMDFLOAT_EQ_EST(safe_est4, .1084652f, .2169305f, .433861f, .8677219f);
   EXPECT_SIMDINT_EQ(ozz::math::IsNormalizedEst4(safe_est4), 0xffffffff, 0, 0, 0);
-//  const SimdFloat4 safer_est4 = ozz::math::NormalizeSafeEst4(zero, unit);
-//  EXPECT_SIMDFLOAT_EQ_EST(safer_est4, 1.f, 0.f, 0.f, 0.f);
+  const SimdFloat4 safer_est4 = ozz::math::NormalizeSafeEst4(zero, unit);
+  EXPECT_SIMDFLOAT_EQ_EST(safer_est4, 1.f, 0.f, 0.f, 0.f);
 }
 
 TEST(CompareFloat, ozz_simd_math) {
