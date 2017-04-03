@@ -45,7 +45,7 @@ install:
       cd emscriten
       Start-FileDownload "https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.zip"
       dir
-      Start-Process -FilePath "7z" a emsdk-portable.zip -Wait
+      Start-Process -FilePath "7z" -ArgumentList emsdk-portable.zip -Wait
       dir
       cd emsdk-portable
       dir
