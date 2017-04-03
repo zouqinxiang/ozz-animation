@@ -3,27 +3,31 @@ version: '{build}'
 environment:
   matrix:
   # Comilers matrix
-  - env_cmake_generator: "Visual Studio 11 2012"
-    env_cmake_configuration: Debug
-    env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2012_win.exe"
-  - env_cmake_generator: "Visual Studio 12 2013"
-    env_cmake_configuration: Debug
-    env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2013_win.exe"
-  - env_cmake_generator: "Visual Studio 14 2015"
-    env_cmake_configuration: Debug
-    env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2015_win.exe"
+  # - env_cmake_generator: "Visual Studio 11 2012"
+  #   env_cmake_configuration: Debug
+  #   env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2012_win.exe"
+  # - env_cmake_generator: "Visual Studio 12 2013"
+  #   env_cmake_configuration: Debug
+  #   env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2013_win.exe"
+  # - env_cmake_generator: "Visual Studio 14 2015"
+  #   env_cmake_configuration: Debug
+  #   env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2015_win.exe"
+  # - env_cmake_generator: "Visual Studio 14 2015"
+  #   env_cmake_configuration: Release
+  #   env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2015_win.exe"
+  # - env_cmake_generator: "Visual Studio 14 2015 Win64"
+  #   env_cmake_configuration: Debug
+  #   env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2015_win.exe"
+  # - env_cmake_generator: "Visual Studio 14 2015 Win64"
+  #   env_cmake_configuration: Release
+  #   env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2015_win.exe"
+  # # No fbx sdk
+  # - env_cmake_generator: "Visual Studio 14 2015"
+  #   env_cmake_configuration: Release
+  # Emscriten
   - env_cmake_generator: "Visual Studio 14 2015"
     env_cmake_configuration: Release
-    env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2015_win.exe"
-  - env_cmake_generator: "Visual Studio 14 2015 Win64"
-    env_cmake_configuration: Debug
-    env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2015_win.exe"
-  - env_cmake_generator: "Visual Studio 14 2015 Win64"
-    env_cmake_configuration: Release
-    env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2017/2017.1/fbx20171_fbxsdk_vs2015_win.exe"
-  # No fbx sdk
-  - env_cmake_generator: "Visual Studio 14 2015"
-    env_cmake_configuration: Release
+    env_emscripten: 1
 
 install:
 # Setup Fbx sdk
@@ -34,6 +38,21 @@ install:
       Start-FileDownload $Env:env_fbxsdk_path "fbxsdk.exe"
       Start-Process -FilePath "fbxsdk.exe" /S -Wait
       cd ..
+    }
+- ps: >-
+    if ($Env:env_emscripten) {
+      md emscriten
+      cd emscriten
+      Start-FileDownload "https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.zip"
+      dir
+      Start-Process -FilePath "7z" a emsdk-portable.zip -Wait
+      dir
+      cd emsdk-portable
+      dir
+      ./emsdk update;
+      ./emsdk install latest;
+      ./emsdk activate latest;
+      cd ../..
     }
 
 build_script:
