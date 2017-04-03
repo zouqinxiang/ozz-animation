@@ -45,11 +45,12 @@ install:
       cd emscriten
       Start-FileDownload "https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.zip"
       7z x emsdk-portable.zip
-      ./emsdk update
-      ./emsdk install latest
-      ./emsdk activate latest
+      emsdk update
+      emsdk install latest
+      emsdk activate latest
       cd ..
-      $Env:env_cmake_toolchain="-DCMAKE_TOOLCHAIN_FILE=%EMSCRIPTEN%/cmake/Modules/Platform/Emscripten.cmake"
+      echo $Env:EMSCRIPTEN
+      $Env:env_cmake_toolchain="-DCMAKE_TOOLCHAIN_FILE=$Env:EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake"
     }
 
 build_script:
