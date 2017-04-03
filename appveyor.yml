@@ -49,13 +49,13 @@ install:
       ./emsdk install latest
       ./emsdk activate latest
       cd ..
-      echo $Env:EMSCRIPTEN
       $Env:env_cmake_toolchain="-DCMAKE_TOOLCHAIN_FILE=$Env:EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake"
     }
 
 build_script:
 - mkdir build
 - cd build
+- echo %EMSCRIPTEN%
 - echo %env_cmake_toolchain%
 - cmake  -G "%env_cmake_generator%" %env_cmake_toolchain% -Dozz_build_tests=1 -DCMAKE_BUILD_TYPE=%env_cmake_configuration% ..
 - cmake --build ./ --config %env_cmake_configuration%
