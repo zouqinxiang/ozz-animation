@@ -50,7 +50,7 @@ install:
       ./emsdk activate latest
       dir
       cd ..
-      $Env:env_cmake_toolchain="-DCMAKE_TOOLCHAIN_FILE=$Env:EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake"
+      $Env:env_cmake_toolchain="-DCMAKE_TOOLCHAIN_FILE=%EMSCRIPTEN%/cmake/Modules/Platform/Emscripten.cmake"
     }
 
 build_script:
