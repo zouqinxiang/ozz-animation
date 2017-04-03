@@ -6,131 +6,131 @@ sudo: required
 matrix:
   include:
   # Emscripten cross compiling
-  #- os: linux
-  #  compiler: gcc
-  #  env:
-  #  - env_build_emscripten=1
+  - os: linux
+    compiler: gcc
+    env:
+    - env_build_emscripten=1
 
   # mac os
   # Default mac os clang build
-  - os: osx
-    compiler: clang
-  - os: osx
-    compiler: clang
-    env:
-    - env_cmake_configuration=Release
-  # Xcode mac os clang build
-  - os: osx
-    compiler: clang
-    env :
-    - env_cmake_generator=Xcode
-  - os: osx
-    compiler: clang
-    env :
-    - env_cmake_generator=Xcode
-    - env_cmake_configuration=Release
+  # - os: osx
+  #   compiler: clang
+  # - os: osx
+  #   compiler: clang
+  #   env:
+  #   - env_cmake_configuration=Release
+  # # Xcode mac os clang build
+  # - os: osx
+  #   compiler: clang
+  #   env :
+  #   - env_cmake_generator=Xcode
+  # - os: osx
+  #   compiler: clang
+  #   env :
+  #   - env_cmake_generator=Xcode
+  #   - env_cmake_configuration=Release
 
-  # Linux
-  # Default linux gcc
-  - os: linux
-    compiler: gcc
-  # Default linux gcc
-  - os: linux
-    compiler: gcc
-    env:
-    - env_cmake_configuration=Release
-  # Default linux clang
-  - os: linux
-    compiler: clang
-  # Default linux release clang
-  - os: linux
-    compiler: clang
-    env:
-    - env_cmake_configuration=Release
+  # # Linux
+  # # Default linux gcc
+  # - os: linux
+  #   compiler: gcc
+  # # Default linux gcc
+  # - os: linux
+  #   compiler: gcc
+  #   env:
+  #   - env_cmake_configuration=Release
+  # # Default linux clang
+  # - os: linux
+  #   compiler: clang
+  # # Default linux release clang
+  # - os: linux
+  #   compiler: clang
+  #   env:
+  #   - env_cmake_configuration=Release
 
-  # Specific configurations
-  - os: linux
-    compiler: clang
-    env:
-    - env_build_cpp11=1
-  - os: linux
-    compiler: clang
-    env:
-    - env_build_fbx=0
-  - os: linux
-    compiler: clang
-    env:
-    - env_build_howtos=0
-  - os: linux
-    compiler: clang
-    env:
-    - env_build_samples=0
-  - os: linux
-    compiler: clang
-    env:
-    - env_build_simdref=1
-  - os: linux
-    compiler: clang
-    env:
-    - env_build_tests=0
-  - os: linux
-    compiler: clang
-    env:
-    - env_build_fbx=0
-    - env_build_samples=0
-  - os: linux
-    compiler: clang
-    env:
-    - env_build_fbx=0
-    - env_build_tests=0
+  # # Specific configurations
+  # - os: linux
+  #   compiler: clang
+  #   env:
+  #   - env_build_cpp11=1
+  # - os: linux
+  #   compiler: clang
+  #   env:
+  #   - env_build_fbx=0
+  # - os: linux
+  #   compiler: clang
+  #   env:
+  #   - env_build_howtos=0
+  # - os: linux
+  #   compiler: clang
+  #   env:
+  #   - env_build_samples=0
+  # - os: linux
+  #   compiler: clang
+  #   env:
+  #   - env_build_simdref=1
+  # - os: linux
+  #   compiler: clang
+  #   env:
+  #   - env_build_tests=0
+  # - os: linux
+  #   compiler: clang
+  #   env:
+  #   - env_build_fbx=0
+  #   - env_build_samples=0
+  # - os: linux
+  #   compiler: clang
+  #   env:
+  #   - env_build_fbx=0
+  #   - env_build_tests=0
 
-  # Newer compilers
-  # gcc
-  - os: linux
-    compiler: gcc-4.9
-    env: 
-    - env_cmake_cxx_compiler=g++-4.9
-    - env_cmake_c_compiler=gcc-4.9
-    addons:
-      apt:
-        sources:
-        - ubuntu-toolchain-r-test
-        packages:
-        - g++-4.9
-  - os: linux
-    compiler: gcc-5
-    env: 
-    - env_cmake_cxx_compiler=g++-5
-    - env_cmake_c_compiler=gcc-5
-    addons:
-      apt:
-        sources:
-        - ubuntu-toolchain-r-test
-        packages:
-        - g++-5
-  - os: linux
-    compiler: gcc-6
-    env: 
-    - env_cmake_cxx_compiler=g++-6
-    - env_cmake_c_compiler=gcc-6
-    addons:
-      apt:
-        sources:
-        - ubuntu-toolchain-r-test
-        packages:
-        - g++-6
-  # clang
-  - os: linux
-    compiler: clang-3.8
-    env:
-    - env_cmake_cxx_compiler=clang++-3.8
-    - env_cmake_c_compiler=clang-3.8
-    addons:
-      apt:
-        sources:
-        - llvm-toolchain-precise-3.8
-        packages:
-        - clang-3.8
+  # # Newer compilers
+  # # gcc
+  # - os: linux
+  #   compiler: gcc-4.9
+  #   env: 
+  #   - env_cmake_cxx_compiler=g++-4.9
+  #   - env_cmake_c_compiler=gcc-4.9
+  #   addons:
+  #     apt:
+  #       sources:
+  #       - ubuntu-toolchain-r-test
+  #       packages:
+  #       - g++-4.9
+  # - os: linux
+  #   compiler: gcc-5
+  #   env: 
+  #   - env_cmake_cxx_compiler=g++-5
+  #   - env_cmake_c_compiler=gcc-5
+  #   addons:
+  #     apt:
+  #       sources:
+  #       - ubuntu-toolchain-r-test
+  #       packages:
+  #       - g++-5
+  # - os: linux
+  #   compiler: gcc-6
+  #   env: 
+  #   - env_cmake_cxx_compiler=g++-6
+  #   - env_cmake_c_compiler=gcc-6
+  #   addons:
+  #     apt:
+  #       sources:
+  #       - ubuntu-toolchain-r-test
+  #       packages:
+  #       - g++-6
+  # # clang
+  # - os: linux
+  #   compiler: clang-3.8
+  #   env:
+  #   - env_cmake_cxx_compiler=clang++-3.8
+  #   - env_cmake_c_compiler=clang-3.8
+  #   addons:
+  #     apt:
+  #       sources:
+  #       - llvm-toolchain-precise-3.8
+  #       packages:
+  #       - clang-3.8
 
 before_install:
 - echo before_install----------------------------------------------------------
@@ -156,15 +156,13 @@ install:
   fi
 # Download and install emscripten sdk  
 - if [[ $env_build_emscripten ]]; then
-    sudo apt-get install software-properties-common -y;
-    sudo add-apt-repository ppa:george-edison55/cmake-3.x -y;
-    sudo apt-get update;
-    sudo apt-get install --only-upgrade cmake -y;
-    git clone https://github.com/juj/emsdk.git;
-    cd emsdk;
-    sudo ./emsdk update-tags;
-    sudo ./emsdk install sdk-nightly-latest-64bit;
-    sudo ./emsdk activate --embedded sdk-nightly-latest-64bit;
+    mkdir emscripten;
+    cd emscripten;
+    sudo wget https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gz;
+    sudo tar -xf "emsdk-portable.tar.gz";
+    ./emsdk update;
+    ./emsdk install latest;
+    ./emsdk activate latest;
     source ./emsdk_env.sh;
     cd ..;
   fi
