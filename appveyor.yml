@@ -44,15 +44,11 @@ install:
       md emscriten
       cd emscriten
       Start-FileDownload "https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.zip"
-      dir
       7z x emsdk-portable.zip
-      dir
-      cd emsdk-portable
-      dir
       ./emsdk update;
       ./emsdk install latest;
       ./emsdk activate latest;
-      cd ../..
+      cd ..
     }
 
 build_script:
