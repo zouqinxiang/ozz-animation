@@ -10,6 +10,8 @@ matrix:
     compiler: emcc
     env:
     - env_build_emscripten=1
+    - env_cmake_cxx_compiler=emcc
+    - env_cmake_c_compiler=emcc
     addons:
       apt:
         packages:
