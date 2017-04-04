@@ -141,9 +141,9 @@ before_install:
 
 install:
 - echo install-----------------------------------------------------------------
-- sudo wget https://cmake.org/files/v3.7/cmake-3.7.2-Linux-x86_64.sh;
-  chmod a+x cmake-3.7.2-Linux-x86_64.sh;
-  sudo ./cmake-3.7.2-Linux-x86_64.sh --skip-license --prefix=/usr/local;
+- sudo wget -O cmake_install.sh https://cmake.org/files/v3.7/cmake-3.7.2-Linux-x86_64.sh;
+  sudo chmod a+x cmake_install.sh;
+  sudo ./cmake_install.sh --skip-license --prefix=/usr/local;
   export PATH=/usr/local/bin:$PATH;
 
 # Download and install fbx sdk
