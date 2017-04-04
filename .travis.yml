@@ -7,7 +7,6 @@ matrix:
   include:
   # Emscripten cross compiling
   - os: linux
-    compiler: gcc
     env:
     - env_build_emscripten=1
     addons:
