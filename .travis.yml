@@ -142,7 +142,7 @@ before_install:
 install:
 - echo install-----------------------------------------------------------------
 - sudo wget https://cmake.org/files/v3.7/cmake-3.7.2-Linux-x86_64.sh;
-  sudo ./cmake-3.7.2-Linux-x86_64.sh;
+  sudo bash ./cmake-3.7.2-Linux-x86_64.sh;
 
 # Download and install fbx sdk
 - if [[ $env_build_fbx && $TRAVIS_OS_NAME == "linux" ]]; then
