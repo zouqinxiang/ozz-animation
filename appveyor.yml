@@ -48,8 +48,8 @@ install:
       dir
       ./emsdk update
       ./emsdk install latest
-      ./emsdk activate latest
-      ./emsdk_env.bat
+      . ./emsdk activate latest
+      . ./emsdk_env.bat
       cd ..
       $Env:env_cmake_toolchain="-DCMAKE_TOOLCHAIN_FILE=%EMSCRIPTEN%/cmake/Modules/Platform/Emscripten.cmake"
     }
