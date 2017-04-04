@@ -7,6 +7,7 @@ matrix:
   include:
   # Emscripten cross compiling
   - os: linux
+    compiler: emcc
     env:
     - env_build_emscripten=1
     addons:
@@ -187,8 +188,8 @@ before_script:
 - if [[ -z $env_build_simd_ref ]]; then export env_build_simd_ref=0; fi
 - if [[ -z $env_build_tests ]]; then export env_build_tests=1; fi
 - if [[ -z $env_cmake_configuration ]]; then export env_cmake_configuration=Debug; fi
-- if [[ -z $env_build_emscripten && -z $env_cmake_cxx_compiler ]]; then export env_cmake_cxx_compiler=$CXX; fi
-- if [[ -z $env_build_emscripten && -z $env_cmake_c_compiler ]]; then export env_cmake_c_compiler=$CC; fi
+- if [[ -z $env_cmake_cxx_compiler ]]; then export env_cmake_cxx_compiler=$CXX; fi
+- if [[ -z $env_cmake_c_compiler ]]; then export env_cmake_c_compiler=$CC; fi
 - if [[ -z $env_cmake_generator ]]; then export env_cmake_generator="Unix Makefiles"; fi
 - if [[ $env_cmake_generator == "Unix Makefiles" ]]; then export env_cmake_generator_specific="-j2"; fi
 - if [[ $EMSCRIPTEN ]]; then env_cmake_toolchain="-DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake"; fi
