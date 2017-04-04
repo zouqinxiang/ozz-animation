@@ -51,7 +51,7 @@ install:
       . ./emsdk activate latest
       . ./emsdk_env.bat
       cd ..
-      $Env:env_cmake_toolchain="-DCMAKE_TOOLCHAIN_FILE=%EMSCRIPTEN%/cmake/Modules/Platform/Emscripten.cmake"
+      $Env:env_cmake_toolchain="-DCMAKE_TOOLCHAIN_FILE=C:\projects\ozz-animation\emscriten\emscripten\1.37.9/cmake/Modules/Platform/Emscripten.cmake"
     }
 
 build_script:
