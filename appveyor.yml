@@ -3,11 +3,9 @@ version: '{build}'
 environment:
   matrix:
   # Testing VS15 2017
-  - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-    env_cmake_generator: "Visual Studio 15 2017"
+  - env_cmake_generator: "Visual Studio 15 2017"
     env_cmake_configuration: Release
-  - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-    env_cmake_generator: "Visual Studio 15 2017 Win64"
+  - env_cmake_generator: "Visual Studio 15 2017 Win64"
     env_cmake_configuration: Release
       # Comilers matrix
   - env_cmake_generator: "Visual Studio 11 2012"
