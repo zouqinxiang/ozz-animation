@@ -7,7 +7,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2015 Guillaume Blanc                                         //
+// Copyright (c) 2017 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -32,6 +32,9 @@
 #include "ozz/base/memory/allocator.h"
 
 #include <memory.h>
+#if __cplusplus >= 201103L
+#include <atomic>
+#endif  // __cplusplus
 #include <cassert>
 #include <cstdlib>
 
@@ -45,14 +48,26 @@ struct Header {
   void* unaligned;
   size_t size;
 };
-}
+}  // namespace
 
-// Implements the basic heap allocator->
+// Implements the basic heap allocator.
 // Will trace allocation count and assert in case of a memory leak.
 class HeapAllocator : public Allocator {
  public:
-  HeapAllocator() : allocation_count_(0) {}
-  ~HeapAllocator() { assert(allocation_count_ == 0 && "Memory leak detected"); }
+  HeapAllocator() {
+#if __cplusplus >= 201103L
+  allocation_count_.store(0);
+# else  // __cplusplus
+  allocation_count_ = 0;
+#endif
+}
+  ~HeapAllocator() {
+#if __cplusplus >= 201103L
+  assert(allocation_count_.load() == 0 && "Memory leak detected");
+# else  // __cplusplus
+  assert(allocation_count_ == 0 && "Memory leak detected");
+#endif
+  }
 
  protected:
   void* Allocate(size_t _size, size_t _alignment) {
@@ -102,7 +117,11 @@ class HeapAllocator : public Allocator {
  private:
   // Internal allocation count used to track memory leaks.
   // Should equals 0 at destruction time.
+#if __cplusplus >= 201103L 
+  std::atomic_int allocation_count_;
+#else  // __cplusplus
   int allocation_count_;
+#endif  // __cplusplus
 };
 
 namespace {
@@ -122,8 +141,8 @@ Allocator* SetDefaulAllocator(Allocator* _allocator) {
   g_default_allocator = _allocator;
   return previous;
 }
-}  // memory
-}  // ozz
+}  // namespace memory
+}  // namespace ozz
 
 // Including log.cc file.
 
@@ -132,7 +151,7 @@ Allocator* SetDefaulAllocator(Allocator* _allocator) {
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2015 Guillaume Blanc                                         //
+// Copyright (c) 2017 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -197,9 +216,9 @@ Logger::~Logger() {
     ozz::memory::default_allocator()->Delete(&stream_);
   }
 }
-}  // internal
-}  // log
-}  // ozz
+}  // namespace internal
+}  // namespace log
+}  // namespace ozz
 
 // Including containers/string_archive.cc file.
 
@@ -208,7 +227,7 @@ Logger::~Logger() {
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2015 Guillaume Blanc                                         //
+// Copyright (c) 2017 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -277,8 +296,8 @@ void Load(IArchive& _archive, String::Std* _values, size_t _count,
     }
   }
 }
-}  // io
-}  // ozz
+}  // namespace io
+}  // namespace ozz
 
 // Including io/archive.cc file.
 
@@ -287,7 +306,7 @@ void Load(IArchive& _archive, String::Std* _values, size_t _count,
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2015 Guillaume Blanc                                         //
+// Copyright (c) 2017 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -337,8 +356,8 @@ IArchive::IArchive(Stream* _stream) : stream_(_stream), endian_swap_(false) {
   *this >> endianness;
   endian_swap_ = endianness != GetNativeEndianness();
 }
-}  // io
-}  // ozz
+}  // namespace io
+}  // namespace ozz
 
 // Including io/stream.cc file.
 
@@ -347,7 +366,7 @@ IArchive::IArchive(Stream* _stream) : stream_(_stream), endian_swap_(false) {
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2015 Guillaume Blanc                                         //
+// Copyright (c) 2017 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -552,8 +571,8 @@ bool MemoryStream::Resize(size_t _size) {
   }
   return _size == 0 || buffer_ != NULL;
 }
-}  // io
-}  // ozz
+}  // namespace io
+}  // namespace ozz
 
 // Including maths/box.cc file.
 
@@ -562,7 +581,7 @@ bool MemoryStream::Resize(size_t _size) {
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2015 Guillaume Blanc                                         //
+// Copyright (c) 2017 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -610,8 +629,8 @@ Box::Box(const Float3* _points, size_t _stride, size_t _count) {
   min = local_min;
   max = local_max;
 }
-}  // ozz
-}  // math
+}  // namespace math
+}  // namespace ozz
 
 // Including maths/simd_math.cc file.
 
@@ -620,7 +639,7 @@ Box::Box(const Float3* _points, size_t _stride, size_t _count) {
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2015 Guillaume Blanc                                         //
+// Copyright (c) 2017 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -667,8 +686,8 @@ const char* SimdImplementationName() {
 #endif
 }
 
-}  // math
-}  // ozz
+}  // namespace math
+}  // namespace ozz
 
 // Including maths/math_archive.cc file.
 
@@ -677,7 +696,7 @@ const char* SimdImplementationName() {
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2015 Guillaume Blanc                                         //
+// Copyright (c) 2017 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -799,8 +818,8 @@ void Load(IArchive& _archive, math::RectInt* _values, size_t _count,
   (void)_version;
   _archive >> MakeArray(&_values->left, 4 * _count);
 }
-}  // io
-}  // ozz
+}  // namespace io
+}  // namespace ozz
 
 // Including maths/soa_math_archive.cc file.
 
@@ -809,7 +828,7 @@ void Load(IArchive& _archive, math::RectInt* _values, size_t _count,
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2015 Guillaume Blanc                                         //
+// Copyright (c) 2017 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -918,8 +937,8 @@ void Load(IArchive& _archive, math::SoaTransform* _values, size_t _count,
   _archive >> MakeArray(reinterpret_cast<float*>(&_values->translation.x),
                         10 * 4 * _count);
 }
-}  // io
-}  // ozz
+}  // namespace io
+}  // namespace ozz
 
 // Including maths/simd_math_archive.cc file.
 
@@ -928,7 +947,7 @@ void Load(IArchive& _archive, math::SoaTransform* _values, size_t _count,
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2015 Guillaume Blanc                                         //
+// Copyright (c) 2017 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -990,6 +1009,6 @@ void Load(IArchive& _archive, math::Float4x4* _values, size_t _count,
   (void)_version;
   _archive >> MakeArray(reinterpret_cast<float*>(_values), 16 * _count);
 }
-}  // io
-}  // ozz
+}  // namespace io
+}  // namespace ozz
 

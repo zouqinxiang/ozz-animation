@@ -1,28 +1,33 @@
-# - Tries to find FBX SDK package.
-# Once done, it will define
-#  FBX_FOUND - System has Fbx SDK installed
-#  FBX_INCLUDE_DIRS - The Fbx SDK include directories
-#  FBX_LIBRARIES - The libraries needed to use Fbx SDK
-#  FBX_LIBRARIES_DEBUG - The libraries needed to use debug Fbx SDK
-#
 # This module will try to located FBX SDK folder, based on the standard
 # directory structure proposed by Autodesk.
 # On every platform, the module will look for libraries that matches the
 # currently selected cmake generator.
 # A version can be specified to the find_package function.
 #
+# Once done, it will define
+#  FBX_FOUND - System has Fbx SDK installed
+#  FBX_INCLUDE_DIRS - The Fbx SDK include directories
+#  FBX_LIBRARIES - The libraries needed to use Fbx SDK
+#  FBX_LIBRARIES_DEBUG - The libraries needed to use debug Fbx SDK
+#
+# It accepts the following variables as input:
+#
+#  FBX_MSVC_RT_DLL - Optional. Select whether to use the DLL version or the
+#                    static library version of the Visual C++ runtime library.
+#                    Default is ON (aka, DLL version: /MD).
+#
 # Known issues:
 # - On ALL platforms: If there are multiple FBX SDK version installed, the
 # current implementation will select the first one it finds.
-# - On MACOS: If there are multiple FBX SDK compiler supported (clang or gcc), the
-# current implementation will select the first one it finds.
+# - On MACOS: If there are multiple FBX SDK compiler supported (clang or gcc),
+# the current implementation will select the first one it finds.
 
 #----------------------------------------------------------------------------#
 #                                                                            #
 # ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  #
 # and distributed under the MIT License (MIT).                               #
 #                                                                            #
-# Copyright (c) 2015 Guillaume Blanc                                         #
+# Copyright (c) 2017 Guillaume Blanc                                         #
 #                                                                            #
 # Permission is hereby granted, free of charge, to any person obtaining a    #
 # copy of this software and associated documentation files (the "Software"), #
@@ -54,6 +59,7 @@ function(FindFbxLibrariesGeneric _FBX_ROOT_DIR _OUT_FBX_LIBRARIES _OUT_FBX_LIBRA
   # - Linux: \lib\<compiler_version>\<build_mode>
 
   # Figures out matching compiler/os directory.
+
   if("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
     if(NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.10)
       set(FBX_CP_PATH "vs2017")
@@ -85,7 +91,17 @@ function(FindFbxLibrariesGeneric _FBX_ROOT_DIR _OUT_FBX_LIBRARIES _OUT_FBX_LIBRA
   endif()
 
   # Set libraries names to search, sorted by preference.
-  set(FBX_SEARCH_LIB_NAMES libfbxsdk-mt.lib fbxsdk-static.a libfbxsdk.a fbxsdk.a)
+  set(FBX_SEARCH_LIB_NAMES fbxsdk-static.a libfbxsdk.a fbxsdk.a)
+
+  # Select whether to use the DLL version or the static library version of the Visual C++ runtime library.
+  # Default is "md", aka use the multithread DLL version of the run-time library.
+  if (NOT DEFINED FBX_MSVC_RT_DLL OR FBX_MSVC_RT_DLL)
+    set(FBX_SEARCH_LIB_NAMES ${FBX_SEARCH_LIB_NAMES} libfbxsdk-md.lib)
+  else()
+    set(FBX_SEARCH_LIB_NAMES ${FBX_SEARCH_LIB_NAMES} libfbxsdk-mt.lib)
+  endif()   
+
+  # Set search path.
   set(FBX_SEARCH_LIB_PATH "${_FBX_ROOT_DIR}/lib/${FBX_CP_PATH}/${FBX_PROCESSOR_PATH}")
 
   find_library(FBX_LIB
@@ -93,7 +109,6 @@ function(FindFbxLibrariesGeneric _FBX_ROOT_DIR _OUT_FBX_LIBRARIES _OUT_FBX_LIBRA
     HINTS "${FBX_SEARCH_LIB_PATH}/release/")
 
   if(FBX_LIB)
-
     # Searches debug version also
     find_library(FBX_LIB_DEBUG
       ${FBX_SEARCH_LIB_NAMES}
@@ -184,7 +199,7 @@ if(FBX_INCLUDE_DIR)
   # Deduce SDK root directory.
   set(FBX_ROOT_DIR "${FBX_INCLUDE_DIR}/")
 
-  # Fills CMake sytandard variables
+  # Fills CMake standard variables
   set(FBX_INCLUDE_DIRS "${FBX_INCLUDE_DIR}/include")
 
   # Searches libraries according to the current compiler

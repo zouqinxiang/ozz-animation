@@ -1,10 +1,20 @@
-TODO Change status badges to master branch.
+Next release
+---------------------
 
 * Build pipeline
-  - Adds Travis-CI (http://travis-ci.org/guillaumeblanc/ozz-animation) and AppVeyor (http://ci.appveyor.com/project/guillaumeblanc/ozz-animation) continuous integration support.
-  
+  - ozz optionnaly supports c++11 compiler.
+
 * Samples
-  - [sample_fbx2mesh] Remaps joint indices to the smaller range of skeleton joints that are actually used by the skinning. It's now required to index skeleton matrices using ozz::sample::framework:Mesh::joint_remaps when build skinning matrices.
+  - [multithread] Switched from OpenMP to c++11 std::async API to implement a parallel-for loop over all computation tasks.
+
+Release version 0.9.1
+---------------------
+
+* Build pipeline
+  - Allows to use ozz-animation from another project using cmake add_subdirectory() command, conforming with [online documentation](http://guillaumeblanc.github.io/ozz-animation/documentation/build/).
+  - Adds Travis-CI (http://travis-ci.org/guillaumeblanc/ozz-animation) and AppVeyor (http://ci.appveyor.com/project/guillaumeblanc/ozz-animation) continuous integration support.
+  - Exposes MSVC /MD and /MT option (ozz_build_msvc_rt_dll). Default is /MD, same as MSVC/cmake.
+  - Adds support for Xcode 8.3.2 (fbx specific compilation option).
 
 Release version 0.9.0
 ---------------------
@@ -143,7 +153,7 @@ Release version 0.4.0
 
 * Library
   - [offline] Adds Fbx import pipeline, through fbx2skel and fbx2anim command line tools.
-  - [offline] Adds Fbx import and conversion library, through ozz_animation_offline_fbx. Building fbx related libraries requires fbx sdk to be installed.
+  - [offline] Adds Fbx import and conversion library, through ozz_animation_fbx. Building fbx related libraries requires fbx sdk to be installed.
   - [offline] Adds ozz_animation_offline_tools library to share the common work for Collada and Fbx import tools. This could be use to implement custom conversion command line tools.
 
 * Samples

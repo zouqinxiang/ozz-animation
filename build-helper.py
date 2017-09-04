@@ -4,7 +4,7 @@
 # ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  #
 # and distributed under the MIT License (MIT).                               #
 #                                                                            #
-# Copyright (c) 2015 Guillaume Blanc                                         #
+# Copyright (c) 2017 Guillaume Blanc                                         #
 #                                                                            #
 # Permission is hereby granted, free of charge, to any person obtaining a    #
 # copy of this software and associated documentation files (the "Software"), #
@@ -287,7 +287,7 @@ def SelecGenerator():
 def DetectTesting():
   global enable_testing
   try:
-    test_file = open(cteste_cache_file)
+    test_file = open(ctest_cache_file)
   except:
     enable_testing = False
     return
@@ -300,9 +300,7 @@ def EnableTesting():
     answer = raw_input("enable testing (y/n): ")
     if answer != 'y' and answer != 'n':
       continue
-    wanted = False
-    if answer == 'y':
-      wanted = True
+    wanted = (answer == 'y')
     
     # Get current state
     if (enable_testing != wanted):
@@ -384,7 +382,7 @@ def main():
         else:
           print("\nExecution failed.\n")
           break
-    except Exception, e:
+    except Exception as e:
       print("\nAn error occured during script execution: %s\n") % e
 
     raw_input("Press enter to continue...")
