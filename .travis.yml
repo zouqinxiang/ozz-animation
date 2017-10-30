@@ -6,7 +6,7 @@ sudo: required
 matrix:
   include:
   # Emscripten cross compiling
-  - os: linux
+  - os: osx
     compiler: emcc
     env:
     - env_build_emscripten=1
