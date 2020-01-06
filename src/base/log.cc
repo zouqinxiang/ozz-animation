@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -27,6 +27,7 @@
 
 #include "ozz/base/log.h"
 
+#include <iomanip>
 #include <sstream>
 
 #include "ozz/base/memory/allocator.h"
@@ -36,7 +37,7 @@ namespace log {
 
 // Default log level initialization.
 namespace {
-Level log_level = Standard;
+Level log_level = kStandard;
 }
 
 Level SetLevel(Level _level) {
@@ -47,27 +48,34 @@ Level SetLevel(Level _level) {
 
 Level GetLevel() { return log_level; }
 
-LogV::LogV() : internal::Logger(std::clog, Verbose) {}
+LogV::LogV() : Logger(std::clog, kVerbose) {}
 
-Log::Log() : internal::Logger(std::clog, Standard) {}
+Log::Log() : Logger(std::clog, kStandard) {}
 
-Out::Out() : internal::Logger(std::cout, Standard) {}
+Out::Out() : Logger(std::cout, kStandard) {}
 
-Err::Err() : internal::Logger(std::cerr, Standard) {}
-
-namespace internal {
+Err::Err() : Logger(std::cerr, kStandard) {}
 
 Logger::Logger(std::ostream& _stream, Level _level)
-    : stream_(
-          _level <= GetLevel()
-              ? _stream
-              : *ozz::memory::default_allocator()->New<std::ostringstream>()),
+    : stream_(_level <= GetLevel() ? _stream
+                                   : *OZZ_NEW(ozz::memory::default_allocator(),
+                                              std::ostringstream)()),
       local_stream_(&stream_ != &_stream) {}
 Logger::~Logger() {
   if (local_stream_) {
-    ozz::memory::default_allocator()->Delete(&stream_);
+    OZZ_DELETE(ozz::memory::default_allocator(), &stream_);
   }
 }
-}  // namespace internal
+
+FloatPrecision::FloatPrecision(const Logger& _logger, int _precision)
+    : precision_(_logger.stream().precision(_precision)),
+      format_(_logger.stream().setf(std::ios_base::fixed,
+                                    std::ios_base::floatfield)),
+      stream_(_logger.stream()) {}
+FloatPrecision::~FloatPrecision() {
+  stream_.precision(precision_);
+  stream_.setf(format_, std::ios_base::floatfield);
+}
+
 }  // namespace log
 }  // namespace ozz

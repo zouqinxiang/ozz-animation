@@ -2,8 +2,10 @@ add_library(ozz_base STATIC
   ${PROJECT_SOURCE_DIR}/include/ozz/base/endianness.h
   ${PROJECT_SOURCE_DIR}/include/ozz/base/gtest_helper.h
   ${PROJECT_SOURCE_DIR}/include/ozz/base/memory/allocator.h
+  ${PROJECT_SOURCE_DIR}/include/ozz/base/memory/scoped_ptr.h
   memory/allocator.cc
   ${PROJECT_SOURCE_DIR}/include/ozz/base/platform.h
+  platform.cc
   ${PROJECT_SOURCE_DIR}/include/ozz/base/log.h
   log.cc
   ${PROJECT_SOURCE_DIR}/include/ozz/base/containers/intrusive_list.h
@@ -36,6 +38,7 @@ add_library(ozz_base STATIC
   ${PROJECT_SOURCE_DIR}/include/ozz/base/maths/rect.h
   ${PROJECT_SOURCE_DIR}/include/ozz/base/maths/simd_math.h
   maths/simd_math.cc
+  ${PROJECT_SOURCE_DIR}/include/ozz/base/maths/simd_quaternion.h
   ${PROJECT_SOURCE_DIR}/include/ozz/base/maths/soa_float.h
   ${PROJECT_SOURCE_DIR}/include/ozz/base/maths/soa_quaternion.h
   ${PROJECT_SOURCE_DIR}/include/ozz/base/maths/soa_transform.h

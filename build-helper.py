@@ -4,7 +4,7 @@
 # ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  #
 # and distributed under the MIT License (MIT).                               #
 #                                                                            #
-# Copyright (c) 2017 Guillaume Blanc                                         #
+# Copyright (c) 2019 Guillaume Blanc                                         #
 #                                                                            #
 # Permission is hereby granted, free of charge, to any person obtaining a    #
 # copy of this software and associated documentation files (the "Software"), #
@@ -29,10 +29,10 @@
 # CMake python helper script.
 
 import subprocess
-import multiprocessing
 import shutil
 import sys
 import os
+import os.path
 import re
 import platform
 from functools import partial
@@ -100,6 +100,8 @@ def Configure():
 
   if (enable_testing) :
     options += ['-D', 'ozz_build_tests=1']
+  else:
+    options += ['-D', 'ozz_build_tests=0']
 
   global generator
   if(generator != 'default'):
@@ -149,7 +151,7 @@ def Build(_build_dir = build_dir):
   options = ['cmake', '--build', _build_dir, '--config', config, '--use-stderr'];
   # Appends parallel build option if supported by the generator.
   if "Unix Makefiles" in generator:
-    options += ['--', '-j' + str(multiprocessing.cpu_count())]
+    options += ['--', '-j4']
   config_process = subprocess.Popen(options, cwd=_build_dir)
   config_process.wait()
   if(config_process.returncode != 0):
@@ -159,9 +161,9 @@ def Build(_build_dir = build_dir):
   return True
 
 def Test():
-  # Configure Test process.
+  # Configure Test process, parallelize a lot of tests in order to stress their dependencies
   print("Running unit tests.")
-  options = ['ctest' ,'--output-on-failure', '-j' + str(multiprocessing.cpu_count()), '--build-config', config]
+  options = ['ctest' ,'--output-on-failure', '-j8', '--build-config', config]
   config_process = subprocess.Popen(options, cwd=build_dir)
   config_process.wait()
   if(config_process.returncode != 0):
@@ -222,7 +224,7 @@ def FindGenerators():
   process = subprocess.Popen(['cmake', '--help'], stdout=subprocess.PIPE)
   stdout = process.communicate()[0]
   sub_stdout = stdout[stdout.rfind('Generators'):]
-  matches = re.findall(r"\s*(.+)\s*=.+", sub_stdout, re.MULTILINE)
+  matches = re.findall(r"\s*\**\s*(.+)\s*=.+", sub_stdout, re.MULTILINE)
   # Fills generators list
   global generators  
   for match in matches:
@@ -284,12 +286,7 @@ def SelecGenerator():
 
 def DetectTesting():
   global enable_testing
-  try:
-    test_file = open(ctest_cache_file)
-  except:
-    enable_testing = False
-    return
-  enable_testing = True
+  enable_testing = os.path.isfile(ctest_cache_file)
 
 def EnableTesting():
   global enable_testing
@@ -304,9 +301,7 @@ def EnableTesting():
     if (enable_testing != wanted):
       enable_testing = wanted
       print("Testing state has changed.")
-      clean = raw_input("Do you want to clean build directory to apply the change? (y/n): ") == "y"
-      if clean:
-        return CleanBuildDir()
+      
     return True
 
 def ClearScreen():
@@ -382,7 +377,7 @@ def main():
         else:
           print("\nExecution failed.\n")
           break
-    except Exception, e:
+    except Exception as e:
       print("\nAn error occured during script execution: %s\n") % e
 
     raw_input("Press enter to continue...")

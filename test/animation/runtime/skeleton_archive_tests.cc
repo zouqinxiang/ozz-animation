@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -31,10 +31,13 @@
 
 #include "ozz/animation/offline/raw_skeleton.h"
 #include "ozz/animation/offline/skeleton_builder.h"
+
 #include "ozz/base/io/archive.h"
 #include "ozz/base/io/stream.h"
+
 #include "ozz/base/maths/soa_transform.h"
-#include "ozz/base/memory/allocator.h"
+
+#include "ozz/base/memory/scoped_ptr.h"
 
 using ozz::animation::Skeleton;
 using ozz::animation::offline::RawSkeleton;
@@ -60,7 +63,7 @@ TEST(Empty, SkeletonSerialize) {
 }
 
 TEST(Filled, SkeletonSerialize) {
-  Skeleton* o_skeleton = NULL;
+  ozz::ScopedPtr<Skeleton> o_skeleton;
   /* Builds output skeleton.
    3 joints
 
@@ -85,7 +88,7 @@ TEST(Filled, SkeletonSerialize) {
 
     SkeletonBuilder builder;
     o_skeleton = builder(raw_skeleton);
-    ASSERT_TRUE(o_skeleton != NULL);
+    ASSERT_TRUE(o_skeleton);
   }
 
   for (int e = 0; e < 2; ++e) {
@@ -106,29 +109,26 @@ TEST(Filled, SkeletonSerialize) {
     // Compares skeletons.
     EXPECT_EQ(o_skeleton->num_joints(), i_skeleton.num_joints());
     for (int i = 0; i < i_skeleton.num_joints(); ++i) {
-      EXPECT_EQ(i_skeleton.joint_properties().begin[i].parent,
-                o_skeleton->joint_properties().begin[i].parent);
-      EXPECT_EQ(i_skeleton.joint_properties().begin[i].is_leaf,
-                o_skeleton->joint_properties().begin[i].is_leaf);
+      EXPECT_EQ(i_skeleton.joint_parents().begin[i],
+                o_skeleton->joint_parents().begin[i]);
       EXPECT_STREQ(i_skeleton.joint_names()[i], o_skeleton->joint_names()[i]);
     }
     for (int i = 0; i < (i_skeleton.num_joints() + 3) / 4; ++i) {
+      EXPECT_TRUE(ozz::math::AreAllTrue(
+          i_skeleton.joint_bind_poses().begin[i].translation ==
+          o_skeleton->joint_bind_poses().begin[i].translation));
+      EXPECT_TRUE(ozz::math::AreAllTrue(
+          i_skeleton.joint_bind_poses().begin[i].rotation ==
+          o_skeleton->joint_bind_poses().begin[i].rotation));
       EXPECT_TRUE(
-          ozz::math::AreAllTrue(i_skeleton.bind_pose().begin[i].translation ==
-                                o_skeleton->bind_pose().begin[i].translation));
-      EXPECT_TRUE(
-          ozz::math::AreAllTrue(i_skeleton.bind_pose().begin[i].rotation ==
-                                o_skeleton->bind_pose().begin[i].rotation));
-      EXPECT_TRUE(
-          ozz::math::AreAllTrue(i_skeleton.bind_pose().begin[i].scale ==
-                                o_skeleton->bind_pose().begin[i].scale));
+          ozz::math::AreAllTrue(i_skeleton.joint_bind_poses().begin[i].scale ==
+                                o_skeleton->joint_bind_poses().begin[i].scale));
     }
   }
-  ozz::memory::default_allocator()->Delete(o_skeleton);
 }
 
 TEST(AlreadyInitialized, SkeletonSerialize) {
-  Skeleton* o_skeleton[2] = {NULL, NULL};
+  ozz::ScopedPtr<Skeleton> o_skeleton[2];
   /* Builds output skeleton.
    3 joints
 
@@ -145,12 +145,12 @@ TEST(AlreadyInitialized, SkeletonSerialize) {
 
     SkeletonBuilder builder;
     o_skeleton[0] = builder(raw_skeleton);
-    ASSERT_TRUE(o_skeleton[0] != NULL);
+    ASSERT_TRUE(o_skeleton[0]);
 
     raw_skeleton.roots.resize(2);
     raw_skeleton.roots[1].name = "root1";
     o_skeleton[1] = builder(raw_skeleton);
-    ASSERT_TRUE(o_skeleton[1] != NULL);
+    ASSERT_TRUE(o_skeleton[1]);
   }
 
   {
@@ -176,7 +176,4 @@ TEST(AlreadyInitialized, SkeletonSerialize) {
     EXPECT_STREQ(i_skeleton.joint_names()[0], o_skeleton[1]->joint_names()[0]);
     EXPECT_STREQ(i_skeleton.joint_names()[1], o_skeleton[1]->joint_names()[1]);
   }
-
-  ozz::memory::default_allocator()->Delete(o_skeleton[0]);
-  ozz::memory::default_allocator()->Delete(o_skeleton[1]);
 }

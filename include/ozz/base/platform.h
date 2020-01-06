@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -50,13 +50,37 @@ namespace ozz {
 
 // Gets alignment in bytes required for any instance of the given type.
 // Usage is OZZ_ALIGN_OF(MyStruct).
+#if __cplusplus >= 201103L
+#define OZZ_ALIGN_OF(_Ty) alignof(_Ty)
+#else  // __cplusplus
 namespace internal {
+// http://www.wambold.com/Martin/writings/alignof.html
 template <typename _Ty>
-struct AlignOf {
-  static const size_t value = sizeof(_Ty) ^ (sizeof(_Ty) & (sizeof(_Ty) - 1));
+struct _AlignOf;
+
+template <typename _Ty, size_t _SizeDiff>
+struct _AlignOfHelper {
+  enum { kValue = _SizeDiff };
+};
+
+template <typename _Ty>
+struct _AlignOfHelper<_Ty, 0> {
+  enum { kValue = _AlignOf<_Ty>::kValue };
+};
+
+template <typename _Ty>
+struct _AlignOf {
+  struct Acc {
+    Acc();  // Needs a default constructor for some compilers.
+    _Ty x;
+    char c;
+  };
+  enum { kValue = _AlignOfHelper<Acc, sizeof(Acc) - sizeof(_Ty)>::kValue };
 };
 }  // namespace internal
-#define OZZ_ALIGN_OF(_Ty) ozz::internal::AlignOf<_Ty>::value
+#define OZZ_ALIGN_OF(_Ty) \
+  static_cast<size_t>(ozz::internal::_AlignOf<_Ty>::kValue)
+#endif  // __cplusplus
 
 // Finds the number of elements of a statically allocated array.
 #define OZZ_ARRAY_SIZE(_array) (sizeof(_array) / sizeof(_array[0]))
@@ -101,6 +125,11 @@ struct AlignOf {
 #define OZZ_IF_NDEBUG(...)
 #endif  // NDEBUG
 
+// Case sensitive wildcard string matching:
+// - a ? sign matches any character, except an empty string.
+// - a * sign matches any string, including an empty string.
+bool strmatch(const char* _str, const char* _pattern);
+
 // Offset a pointer from a given number of bytes.
 template <typename _Ty>
 _Ty* PointerStride(_Ty* _ty, size_t _stride) {
@@ -112,17 +141,23 @@ template <typename _Ty>
 struct Range {
   // Default constructor initializes range to empty.
   Range() : begin(NULL), end(NULL) {}
+
   // Constructs a range from its extreme values.
-  Range(_Ty* _begin, const _Ty* _end) : begin(_begin), end(_end) {}
+  Range(_Ty* _begin, const _Ty* _end) : begin(_begin), end(_end) {
+    assert(_begin <= _end && "Invalid range.");
+  }
+
   // Construct a range from a pointer to a buffer and its size, ie its number of
   // elements.
   Range(_Ty* _begin, size_t _size) : begin(_begin), end(_begin + _size) {}
+
   // Construct a range from a single element.
   explicit Range(_Ty& _element) : begin(&_element), end((&_element) + 1) {}
+
   // Construct a range from an array, its size is automatically deduced.
   // It isn't declared explicit as conversion is free and safe.
   template <size_t _size>
-  explicit Range(_Ty (&_array)[_size]) : begin(_array), end(_array + _size) {}
+  Range(_Ty (&_array)[_size]) : begin(_array), end(_array + _size) {}
 
   // Reset range to empty.
   void Clear() {
@@ -141,29 +176,23 @@ struct Range {
   operator Range<const _Ty>() const { return Range<const _Ty>(begin, end); }
 
   // Returns a const reference to element _i of range [begin,end[.
-  const _Ty& operator[](size_t _i) const {
-    assert(begin && &begin[_i] < end && "Index out of range");
-    return begin[_i];
-  }
-
-  // Returns a reference to element _i of range [begin,end[.
-  _Ty& operator[](size_t _i) {
-    assert(begin && &begin[_i] < end && "Index out of range");
+  _Ty& operator[](size_t _i) const {
+    assert(begin != NULL && begin + _i < end && "Index out of range.");
     return begin[_i];
   }
 
   // Gets the number of elements of the range.
   // This size isn't stored but computed from begin and end pointers.
-  size_t Count() const {
-    const ptrdiff_t count = end - begin;
-    return count > 0 ? count : 0;
+  size_t count() const {
+    assert(begin <= end && "Invalid range.");
+    return static_cast<size_t>(end - begin);
   }
 
   // Gets the size in byte of the range.
-  size_t Size() const {
-    const ptrdiff_t size =
-        reinterpret_cast<uintptr_t>(end) - reinterpret_cast<uintptr_t>(begin);
-    return size > 0 ? size : 0;
+  size_t size() const {
+    assert(begin <= end && "Invalid range.");
+    return static_cast<size_t>(reinterpret_cast<uintptr_t>(end) -
+                               reinterpret_cast<uintptr_t>(begin));
   }
 
   // Range begin pointer.
@@ -172,5 +201,18 @@ struct Range {
   // Range end pointer, declared as const as it should never be dereferenced.
   const _Ty* end;
 };
-}  // ozz
+
+// Returns a mutable ozz::Range from a single object, as this isn't implicitly
+// exposed by Range object.
+template <typename _Ty>
+inline Range<_Ty> make_range(_Ty& _object) {
+  return Range<_Ty>(_object);
+}
+
+// Returns a mutable ozz::Range from a single object.
+template <typename _Ty>
+inline Range<const _Ty> make_range(const _Ty& _object) {
+  return Range<const _Ty>(_object);
+}
+}  // namespace ozz
 #endif  // OZZ_OZZ_BASE_PLATFORM_H_

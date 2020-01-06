@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -32,7 +32,7 @@
 
 #include "ozz/base/io/archive.h"
 #include "ozz/base/io/stream.h"
-#include "ozz/base/memory/allocator.h"
+#include "ozz/base/memory/scoped_ptr.h"
 
 #include "ozz/base/maths/soa_transform.h"
 
@@ -47,8 +47,6 @@ using ozz::animation::RotationKey;
 using ozz::animation::ScaleKey;
 using ozz::animation::offline::RawAnimation;
 using ozz::animation::offline::AnimationBuilder;
-
-// clang-format off
 
 TEST(Empty, AnimationSerialize) {
   ozz::io::MemoryStream stream;
@@ -71,7 +69,7 @@ TEST(Empty, AnimationSerialize) {
 
 TEST(Filled, AnimationSerialize) {
   // Builds a valid animation.
-  Animation* o_animation = NULL;
+  ozz::ScopedPtr<Animation> o_animation;
   {
     RawAnimation raw_animation;
     raw_animation.duration = 1.f;
@@ -93,7 +91,7 @@ TEST(Filled, AnimationSerialize) {
 
     AnimationBuilder builder;
     o_animation = builder(raw_animation);
-    ASSERT_TRUE(o_animation != NULL);
+    ASSERT_TRUE(o_animation);
   }
 
   for (int e = 0; e < 2; ++e) {
@@ -126,35 +124,28 @@ TEST(Filled, AnimationSerialize) {
 
     // Samples and compares the two animations
     {  // Samples at t = 0
-      job.time = 0.f;
+      job.ratio = 0.f;
       job.Run();
-      EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 93.f, 0.f, 0.f, 0.f,
-                                                     58.f, 0.f, 0.f, 0.f,
-                                                     46.f, 0.f, 0.f, 0.f);
-      EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                      1.f, 0.f, 0.f, 0.f,
-                                                      0.f, 0.f, 0.f, 0.f,
-                                                      0.f, 1.f, 1.f, 1.f);
-      EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 99.f, 1.f, 1.f, 1.f,
-                                               26.f, 1.f, 1.f, 1.f,
-                                               14.f, 1.f, 1.f, 1.f);
+      EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 93.f, 0.f, 0.f, 0.f, 58.f,
+                              0.f, 0.f, 0.f, 46.f, 0.f, 0.f, 0.f);
+      EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 1.f,
+                                  0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f,
+                                  1.f, 1.f);
+      EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 99.f, 1.f, 1.f, 1.f, 26.f, 1.f,
+                              1.f, 1.f, 14.f, 1.f, 1.f, 1.f);
     }
     {  // Samples at t = 1
-      job.time = 1.f;
+      job.ratio = 1.f;
       job.Run();
-      EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 46.f, 0.f, 0.f, 0.f,
-                                                     58.f, 0.f, 0.f, 0.f,
-                                                     93.f, 0.f, 0.f, 0.f);
-      EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                      1.f, 0.f, 0.f, 0.f,
-                                                      0.f, 0.f, 0.f, 0.f,
-                                                      0.f, 1.f, 1.f, 1.f);
-      EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 99.f, 1.f, 1.f, 1.f,
-                                               26.f, 1.f, 1.f, 1.f,
-                                               14.f, 1.f, 1.f, 1.f);
+      EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 46.f, 0.f, 0.f, 0.f, 58.f,
+                              0.f, 0.f, 0.f, 93.f, 0.f, 0.f, 0.f);
+      EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 1.f,
+                                  0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f,
+                                  1.f, 1.f);
+      EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 99.f, 1.f, 1.f, 1.f, 26.f, 1.f,
+                              1.f, 1.f, 14.f, 1.f, 1.f, 1.f);
     }
   }
-  ozz::memory::default_allocator()->Delete(o_animation);
 }
 
 TEST(AlreadyInitialized, AnimationSerialize) {
@@ -168,17 +159,15 @@ TEST(AlreadyInitialized, AnimationSerialize) {
     raw_animation.tracks.resize(1);
 
     AnimationBuilder builder;
-    Animation* o_animation = builder(raw_animation);
-    ASSERT_TRUE(o_animation != NULL);
+    ozz::ScopedPtr<Animation> o_animation(builder(raw_animation));
+    ASSERT_TRUE(o_animation);
     o << *o_animation;
-    ozz::memory::default_allocator()->Delete(o_animation);
 
     raw_animation.duration = 2.f;
     raw_animation.tracks.resize(2);
     o_animation = builder(raw_animation);
-    ASSERT_TRUE(o_animation != NULL);
+    ASSERT_TRUE(o_animation);
     o << *o_animation;
-    ozz::memory::default_allocator()->Delete(o_animation);
   }
 
   {

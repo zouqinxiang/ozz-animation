@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -37,7 +37,7 @@ namespace io {
 OArchive::OArchive(Stream* _stream, Endianness _endianness)
     : stream_(_stream), endian_swap_(_endianness != GetNativeEndianness()) {
   assert(stream_ && stream_->opened() &&
-         L"_stream argument must point a valid opened stream.");
+         "_stream argument must point a valid opened stream.");
   // Save as a single byte as it does not need to be swapped.
   uint8_t endianness = static_cast<uint8_t>(_endianness);
   *this << endianness;
@@ -47,7 +47,7 @@ OArchive::OArchive(Stream* _stream, Endianness _endianness)
 
 IArchive::IArchive(Stream* _stream) : stream_(_stream), endian_swap_(false) {
   assert(stream_ && stream_->opened() &&
-         L"_stream argument must point a valid opened stream.");
+         "_stream argument must point a valid opened stream.");
   // Endianness was saved as a single byte, as it does not need to be swapped.
   uint8_t endianness;
   *this >> endianness;

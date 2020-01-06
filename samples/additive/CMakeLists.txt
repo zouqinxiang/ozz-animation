@@ -17,7 +17,8 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/arnaud_mesh.ozz" "./media/mesh.ozz"
   COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_skeleton.ozz" "./media/skeleton.ozz"
   COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_walk.ozz" "./media/animation_base.ozz"
-  COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_crackhead_additive.ozz" "./media/animation_additive.ozz")
+  COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_crackhead_additive.ozz" "./media/animation_additive.ozz"
+  VERBATIM)
 
 add_executable(sample_additive
   sample_additive.cc
@@ -40,6 +41,7 @@ if(EMSCRIPTEN)
   install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/sample_additive.html
     ${CMAKE_CURRENT_BINARY_DIR}/sample_additive.js
+    ${CMAKE_CURRENT_BINARY_DIR}/sample_additive.wasm
     DESTINATION bin/samples/additive)
 else()
   install(TARGETS sample_additive DESTINATION bin/samples/additive)

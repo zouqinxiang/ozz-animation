@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -30,10 +30,13 @@
 
 #include <cstddef>
 #include "ozz/base/containers/string.h"
+#include "ozz/base/memory/scoped_ptr.h"
 
 namespace ozz {
 namespace math {
 struct Box;
+struct Float2;
+struct Float3;
 struct Float4x4;
 }  // namespace math
 namespace sample {
@@ -87,10 +90,11 @@ class Application {
   virtual void OnDestroy() = 0;
 
   // Provides update event to the inheriting application.
-  // Argument _dt is the elapsed time (in seconds) since the last update.
+  // _dt is the elapsed time (in seconds) since the last update.
+  // _time is application time including scaling (aka accumulated _dt).
   // OnUpdate can return false which will in turn stop the loop and exit the
   // application with EXIT_FAILURE. Note that OnDestroy is called in any case.
-  virtual bool OnUpdate(float _dt) = 0;
+  virtual bool OnUpdate(float _dt, float _time) = 0;
 
   // Provides immediate mode gui display event to the inheriting application.
   // This function is called in between the OnDisplay and swap functions.
@@ -104,6 +108,12 @@ class Application {
   // application with EXIT_FAILURE. Note that OnDestroy is called in any case.
   virtual bool OnDisplay(Renderer* _renderer) = 0;
 
+  // Initial camera values. These will only be considered if function returns
+  // true;
+  virtual bool GetCameraInitialSetup(math::Float3* _center,
+                                     math::Float2* _angles,
+                                     float* _distance) const;
+
   // Allows the inheriting application to override camera location.
   // Application should return true (false by default) if it wants to override
   // Camera location, and fills in this case _transform matrix.
@@ -113,6 +123,7 @@ class Application {
   // Requires the inheriting application to provide scene bounds. It is used by
   // the camera to frame all the scene.
   // This function is never called before a first OnUpdate.
+  // If _bound is set to "invalid", then camera won't be updated.
   virtual void GetSceneBounds(math::Box* _bound) const = 0;
 
   // Implements framework internal loop function.
@@ -175,6 +186,9 @@ class Application {
   // Update time scale factor.
   float time_factor_;
 
+  // Current application time, including scaling and freezes..
+  float time_;
+
   // Last time the idle function was called, in seconds.
   // This is a double value in order to maintain enough accuracy when the
   // application is running since a long time.
@@ -204,9 +218,9 @@ class Application {
   ImGui* im_gui_;
 
   // Timing records.
-  Record* fps_;
-  Record* update_time_;
-  Record* render_time_;
+  ozz::ScopedPtr<Record> fps_;
+  ozz::ScopedPtr<Record> update_time_;
+  ozz::ScopedPtr<Record> render_time_;
 
   // Current screen resolution.
   Resolution resolution_;

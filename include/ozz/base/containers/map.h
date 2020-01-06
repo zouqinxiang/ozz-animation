@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -59,8 +59,8 @@ struct str_less {
 };
 
 // Specializes std::map to use c-string as a key.
-template <class _Ty,
-          class _Allocator = ozz::StdAllocator<std::pair<const char*, _Ty> > >
+template <class _Ty, class _Allocator =
+                         ozz::StdAllocator<std::pair<const char* const, _Ty> > >
 struct CStringMap {
   typedef std::map<const char*, _Ty, str_less, _Allocator> Std;
 };

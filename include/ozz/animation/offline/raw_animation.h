@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -56,7 +56,7 @@ namespace offline {
 // Animations that would fail this validation will fail to be converted by the
 // AnimationBuilder.
 struct RawAnimation {
-  // Constructs an valid RawAnimation with a 1s default duration.
+  // Constructs a valid RawAnimation with a 1s default duration.
   RawAnimation();
 
   // Deallocates raw animation.
@@ -68,6 +68,9 @@ struct RawAnimation {
   //  2. Keyframes' time are sorted in a strict ascending order.
   //  3. Keyframes' time are all within [0,animation duration] range.
   bool Validate() const;
+
+  // Get the estimated animation's size in bytes.
+  size_t size() const;
 
   // Defines a raw translation key frame.
   struct TranslationKey {
@@ -117,6 +120,11 @@ struct RawAnimation {
     Rotations rotations;
     typedef ozz::Vector<ScaleKey>::Std Scales;
     Scales scales;
+
+    // Validates track. See RawAnimation::Validate for more details.
+    // Use an infinite value for _duration if unknown. This will validate
+    // keyframe orders, but not maximum duration.
+    bool Validate(float _duration) const;
   };
 
   // Returns the number of tracks of this animation.
@@ -136,17 +144,19 @@ struct RawAnimation {
 }  // namespace offline
 }  // namespace animation
 namespace io {
-OZZ_IO_TYPE_VERSION(2, animation::offline::RawAnimation)
+OZZ_IO_TYPE_VERSION(3, animation::offline::RawAnimation)
 OZZ_IO_TYPE_TAG("ozz-raw_animation", animation::offline::RawAnimation)
 
 // Should not be called directly but through io::Archive << and >> operators.
 template <>
-void Save(OArchive& _archive,
-          const animation::offline::RawAnimation* _animations, size_t _count);
-
-template <>
-void Load(IArchive& _archive, animation::offline::RawAnimation* _animations,
-          size_t _count, uint32_t _version);
+struct Extern<animation::offline::RawAnimation> {
+  static void Save(OArchive& _archive,
+                   const animation::offline::RawAnimation* _animations,
+                   size_t _count);
+  static void Load(IArchive& _archive,
+                   animation::offline::RawAnimation* _animations, size_t _count,
+                   uint32_t _version);
+};
 }  // namespace io
 }  // namespace ozz
 #endif  // OZZ_OZZ_ANIMATION_OFFLINE_RAW_ANIMATION_H_

@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -44,14 +44,25 @@ namespace sample {
 // Sample framework mesh type.
 struct Mesh;
 
+// Defines render Color structure.
+struct Color {
+  unsigned char r, g, b, a;
+};
+
+// Color constants.
+static const Color kRed = {0xff, 0, 0, 0xff};
+static const Color kGreen = {0, 0xff, 0, 0xff};
+static const Color kBlue = {0, 0, 0xff, 0xff};
+static const Color kWhite = {0xff, 0xff, 0xff, 0xff};
+static const Color kYellow = {0xff, 0xff, 0, 0xff};
+static const Color kMagenta = {0xff, 0, 0xff, 0xff};
+static const Color kCyan = {0, 0xff, 0xff, 0xff};
+static const Color kGrey = {0x80, 0x80, 0x80, 0xff};
+static const Color kBlack = {0x80, 0x80, 0x80, 0xff};
+
 // Defines renderer abstract interface.
 class Renderer {
  public:
-  // Defines render Color structure.
-  struct Color {
-    unsigned char r, g, b, a;
-  };
-
   // Declares a virtual destructor to allow proper destruction.
   virtual ~Renderer() {}
 
@@ -61,11 +72,11 @@ class Renderer {
 
   // Renders coordinate system axes: X in red, Y in green and W in blue.
   // Axes size is given by _scale argument.
-  virtual void DrawAxes(const ozz::math::Float4x4& _transform) = 0;
+  virtual bool DrawAxes(const ozz::math::Float4x4& _transform) = 0;
 
   // Renders a square grid of _cell_count cells width, where each square cell
   // has a size of _cell_size.
-  virtual void DrawGrid(int _cell_count, float _cell_size) = 0;
+  virtual bool DrawGrid(int _cell_count, float _cell_size) = 0;
 
   // Renders a skeleton in its bind pose posture.
   virtual bool DrawSkeleton(const animation::Skeleton& _skeleton,
@@ -92,6 +103,16 @@ class Renderer {
   virtual bool DrawBoxShaded(const ozz::math::Box& _box,
                              ozz::Range<const ozz::math::Float4x4> _transforms,
                              Color _color) = 0;
+
+  // Renders a sphere at a specified location.
+  virtual bool DrawSphereIm(float _radius,
+                            const ozz::math::Float4x4& _transform,
+                            const Color _color) = 0;
+
+  // Renders shaded spheres at specified locations.
+  virtual bool DrawSphereShaded(
+      float _radius, ozz::Range<const ozz::math::Float4x4> _transforms,
+      Color _color) = 0;
 
   struct Options {
     bool texture;    // Show texture (default checkered texture).
@@ -130,12 +151,17 @@ class Renderer {
                         const ozz::math::Float4x4& _transform,
                         const Options& _options = Options()) = 0;
 
+  // Renders a segment from begin to end.
+  virtual bool DrawSegment(const math::Float3& _begin, const math::Float3& _end,
+                           Color _color,
+                           const ozz::math::Float4x4& _transform) = 0;
+
   // Renders vectors, defined by their starting point and a direction.
   virtual bool DrawVectors(ozz::Range<const float> _positions,
                            size_t _positions_stride,
                            ozz::Range<const float> _directions,
                            size_t _directions_stride, int _num_vectors,
-                           float _vector_length, Renderer::Color _color,
+                           float _vector_length, Color _color,
                            const ozz::math::Float4x4& _transform) = 0;
 
   // Compute binormals from normals and tangents, before displaying them.
@@ -144,7 +170,7 @@ class Renderer {
       ozz::Range<const float> _normals, size_t _normals_stride,
       ozz::Range<const float> _tangents, size_t _tangents_stride,
       ozz::Range<const float> _handenesses, size_t _handenesses_stride,
-      int _num_vectors, float _vector_length, Renderer::Color _color,
+      int _num_vectors, float _vector_length, Color _color,
       const ozz::math::Float4x4& _transform) = 0;
 };
 }  // namespace sample

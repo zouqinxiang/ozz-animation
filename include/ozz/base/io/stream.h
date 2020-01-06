@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -75,8 +75,14 @@ class Stream {
   virtual size_t Size() const = 0;
 
  protected:
+  Stream() {}
+
   // Required virtual destructor.
   virtual ~Stream() {}
+
+ private:
+  Stream(const Stream&);
+  void operator=(const Stream&);
 };
 
 // Implements Stream of type File.

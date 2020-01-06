@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -31,7 +31,7 @@
 
 #include "ozz/base/maths/gtest_math_helper.h"
 #include "ozz/base/maths/soa_transform.h"
-#include "ozz/base/memory/allocator.h"
+#include "ozz/base/memory/scoped_ptr.h"
 
 #include "ozz/animation/runtime/animation.h"
 
@@ -39,12 +39,10 @@
 #include "ozz/animation/offline/raw_animation.h"
 
 using ozz::animation::Animation;
-using ozz::animation::SamplingJob;
 using ozz::animation::SamplingCache;
-using ozz::animation::offline::RawAnimation;
+using ozz::animation::SamplingJob;
 using ozz::animation::offline::AnimationBuilder;
-
-// clang-format off
+using ozz::animation::offline::RawAnimation;
 
 TEST(JobValidity, SamplingJob) {
   RawAnimation raw_animation;
@@ -52,8 +50,8 @@ TEST(JobValidity, SamplingJob) {
   raw_animation.tracks.resize(1);
 
   AnimationBuilder builder;
-  Animation* animation = builder(raw_animation);
-  ASSERT_TRUE(animation != NULL);
+  ozz::ScopedPtr<Animation> animation(builder(raw_animation));
+  ASSERT_TRUE(animation);
 
   // Allocates cache.
   SamplingCache cache(1);
@@ -122,7 +120,8 @@ TEST(JobValidity, SamplingJob) {
   {  // Invalid job with smaller output.
     ozz::math::SoaTransform output[1];
     SamplingJob job;
-    job.time = 2155.f;  // Any time can be set.
+    job.ratio =
+        2155.f;  // Any time ratio can be set, it's clamped in unit interval.
     job.animation = animation;
     job.cache = &cache;
     job.output.begin = output;
@@ -134,7 +133,7 @@ TEST(JobValidity, SamplingJob) {
   {  // Valid job.
     ozz::math::SoaTransform output[1];
     SamplingJob job;
-    job.time = 2155.f;  // Any time can be set.
+    job.ratio = 2155.f;  // Any time can be set.
     job.animation = animation;
     job.cache = &cache;
     job.output.begin = output;
@@ -147,7 +146,7 @@ TEST(JobValidity, SamplingJob) {
     SamplingCache big_cache(2);
     ozz::math::SoaTransform output[1];
     SamplingJob job;
-    job.time = 2155.f;  // Any time can be set.
+    job.ratio = 2155.f;  // Any time can be set.
     job.animation = animation;
     job.cache = &big_cache;
     job.output.begin = output;
@@ -159,7 +158,7 @@ TEST(JobValidity, SamplingJob) {
   {  // Valid job with bigger output.
     ozz::math::SoaTransform output[2];
     SamplingJob job;
-    job.time = 2155.f;  // Any time can be set.
+    job.ratio = 2155.f;  // Any time can be set.
     job.animation = animation;
     job.cache = &cache;
     job.output.begin = output;
@@ -179,7 +178,6 @@ TEST(JobValidity, SamplingJob) {
     EXPECT_TRUE(job.Validate());
     EXPECT_TRUE(job.Run());
   }
-  ozz::memory::default_allocator()->Delete(animation);
 }
 
 TEST(Sampling, SamplingJob) {
@@ -209,24 +207,34 @@ TEST(Sampling, SamplingJob) {
   // 2 - B2 C6  D8 E10    F11
   // 3 - 3  G7     H9      12
 
-  struct {float sample_time; float trans[12];} result[] = {
-    {-.2f,      {-1.f, 0.f, 2.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.0f,       {-1.f, 0.f, 2.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.0000001f, {-1.f, 0.f, 2.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.1f,       {-1.f, 0.f, 4.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.2f,       {-1.f, 0.f, 6.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.3f,       {-1.f, 0.f, 7.f, 7.5, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.4f,       {-1.f, 0.f, 8.f, 8.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.3999999f, {-1.f, 0.f, 8.f, 8.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.4000001f, {-1.f, 0.f, 8.f, 8.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.5f,       {-1.f, 0.f, 9.f, 8.5f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.6f,       {-1.f, 0.f, 10.f, 9.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.9999999f, {-1.f, 0.f, 11.f, 9.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {1.f,       {-1.f, 0.f, 11.f, 9.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {1.000001f, {-1.f, 0.f, 11.f, 9.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.5f,       {-1.f, 0.f, 9.f, 8.5f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.9999999f, {-1.f, 0.f, 11.f, 9.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
-    {.0000001f, {-1.f, 0.f, 2.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}}};
+  struct {
+    float sample_time;
+    float trans[12];
+  } result[] = {
+      {-.2f, {-1.f, 0.f, 2.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.0f, {-1.f, 0.f, 2.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.0000001f,
+       {-1.f, 0.f, 2.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.1f, {-1.f, 0.f, 4.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.2f, {-1.f, 0.f, 6.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.3f, {-1.f, 0.f, 7.f, 7.5, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.4f, {-1.f, 0.f, 8.f, 8.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.3999999f,
+       {-1.f, 0.f, 8.f, 8.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.4000001f,
+       {-1.f, 0.f, 8.f, 8.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.5f, {-1.f, 0.f, 9.f, 8.5f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.6f, {-1.f, 0.f, 10.f, 9.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.9999999f,
+       {-1.f, 0.f, 11.f, 9.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {1.f, {-1.f, 0.f, 11.f, 9.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {1.000001f,
+       {-1.f, 0.f, 11.f, 9.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.5f, {-1.f, 0.f, 9.f, 8.5f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.9999999f,
+       {-1.f, 0.f, 11.f, 9.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}},
+      {.0000001f,
+       {-1.f, 0.f, 2.f, 7.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}}};
 
   RawAnimation::TranslationKey a = {.2f, ozz::math::Float3(-1.f, 0.f, 0.f)};
   raw_animation.tracks[0].translations.push_back(a);
@@ -248,48 +256,46 @@ TEST(Sampling, SamplingJob) {
   raw_animation.tracks[3].translations.push_back(h);
 
   // Builds animation
-  ozz::animation::Animation* anim = builder(raw_animation);
-  ASSERT_TRUE(anim != NULL);
+  ozz::ScopedPtr<Animation> animation(builder(raw_animation));
+  ASSERT_TRUE(animation);
 
   ozz::math::SoaTransform output[1];
 
   SamplingJob job;
-  job.animation = anim;
+  job.animation = animation;
   job.cache = &cache;
   job.output.begin = output;
   job.output.end = output + 1;
 
   for (size_t i = 0; i < OZZ_ARRAY_SIZE(result); ++i) {
     memset(output, 0xde, sizeof(output));
-    job.time = result[i].sample_time;
+    job.ratio = result[i].sample_time / animation->duration();
     EXPECT_TRUE(job.Validate());
     EXPECT_TRUE(job.Run());
 
-    EXPECT_SOAFLOAT3_EQ_EST(output[0].translation,
-      result[i].trans[0], result[i].trans[1], result[i].trans[2], result[i].trans[3],
-      result[i].trans[4], result[i].trans[5], result[i].trans[6], result[i].trans[7],
-      result[i].trans[8], result[i].trans[9], result[i].trans[10], result[i].trans[11]);
-    EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                    0.f, 0.f, 0.f, 0.f,
-                                                    0.f, 0.f, 0.f, 0.f,
-                                                    1.f, 1.f, 1.f, 1.f);
-    EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f,
-                                             1.f, 1.f, 1.f, 1.f,
-                                             1.f, 1.f, 1.f, 1.f);
+    EXPECT_SOAFLOAT3_EQ_EST(
+        output[0].translation, result[i].trans[0], result[i].trans[1],
+        result[i].trans[2], result[i].trans[3], result[i].trans[4],
+        result[i].trans[5], result[i].trans[6], result[i].trans[7],
+        result[i].trans[8], result[i].trans[9], result[i].trans[10],
+        result[i].trans[11]);
+    EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f,
+                                0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f,
+                                1.f, 1.f);
+    EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+                            1.f, 1.f, 1.f, 1.f, 1.f);
   }
-
-  ozz::memory::default_allocator()->Delete(anim);
 }
 
 TEST(SamplingNoTrack, SamplingJob) {
   RawAnimation raw_animation;
-  raw_animation.duration = 1.f;
+  raw_animation.duration = 46.f;
 
   SamplingCache cache(1);
 
   AnimationBuilder builder;
-  ozz::animation::Animation* animation = builder(raw_animation);
-  ASSERT_TRUE(animation != NULL);
+  ozz::ScopedPtr<Animation> animation(builder(raw_animation));
+  ASSERT_TRUE(animation);
 
   ozz::math::SoaTransform test_output[1];
   ozz::math::SoaTransform output[1];
@@ -297,7 +303,7 @@ TEST(SamplingNoTrack, SamplingJob) {
   memset(output, 0xde, sizeof(output));
 
   SamplingJob job;
-  job.time = 0.f;
+  job.ratio = 0.f;
   job.animation = animation;
   job.cache = &cache;
   job.output.begin = output;
@@ -307,20 +313,18 @@ TEST(SamplingNoTrack, SamplingJob) {
 
   // Tests output.
   EXPECT_EQ(memcmp(test_output, output, sizeof(output)), 0);
-
-  ozz::memory::default_allocator()->Delete(animation);
 }
 
 TEST(Sampling1Track0Key, SamplingJob) {
   RawAnimation raw_animation;
-  raw_animation.duration = 1.f;
+  raw_animation.duration = 46.f;
   raw_animation.tracks.resize(1);  // Adds a joint.
 
   SamplingCache cache(1);
 
   AnimationBuilder builder;
-  ozz::animation::Animation* animation = builder(raw_animation);
-  ASSERT_TRUE(animation != NULL);
+  ozz::ScopedPtr<Animation> animation(builder(raw_animation));
+  ASSERT_TRUE(animation);
 
   ozz::math::SoaTransform output[1];
 
@@ -330,29 +334,24 @@ TEST(Sampling1Track0Key, SamplingJob) {
   job.output.begin = output;
   job.output.end = output + 1;
 
-  for (float t = -.2f; t < animation->duration() + .2f; t += .1f) {
+  for (float t = -.2f; t < 1.2f; t += .1f) {
     memset(output, 0xde, sizeof(output));
-    job.time = t;
+    job.ratio = t;
     EXPECT_TRUE(job.Validate());
     EXPECT_TRUE(job.Run());
-    EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 0.f, 0.f, 0.f, 0.f,
-                                                   0.f, 0.f, 0.f, 0.f,
-                                                   0.f, 0.f, 0.f, 0.f);
-    EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                    0.f, 0.f, 0.f, 0.f,
-                                                    0.f, 0.f, 0.f, 0.f,
-                                                    1.f, 1.f, 1.f, 1.f);
-    EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f,
-                                             1.f, 1.f, 1.f, 1.f,
-                                             1.f, 1.f, 1.f, 1.f);
+    EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+                            0.f, 0.f, 0.f, 0.f, 0.f, 0.f);
+    EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f,
+                                0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f,
+                                1.f, 1.f);
+    EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+                            1.f, 1.f, 1.f, 1.f, 1.f);
   }
-
-  ozz::memory::default_allocator()->Delete(animation);
 }
 
 TEST(Sampling1Track1Key, SamplingJob) {
   RawAnimation raw_animation;
-  raw_animation.duration = 1.f;
+  raw_animation.duration = 46.f;
   raw_animation.tracks.resize(1);  // Adds a joint.
 
   SamplingCache cache(1);
@@ -362,8 +361,8 @@ TEST(Sampling1Track1Key, SamplingJob) {
   raw_animation.tracks[0].translations.push_back(tkey);  // Adds a key.
 
   AnimationBuilder builder;
-  ozz::animation::Animation* animation = builder(raw_animation);
-  ASSERT_TRUE(animation != NULL);
+  ozz::ScopedPtr<Animation> animation(builder(raw_animation));
+  ASSERT_TRUE(animation);
 
   ozz::math::SoaTransform output[1];
 
@@ -373,29 +372,24 @@ TEST(Sampling1Track1Key, SamplingJob) {
   job.output.begin = output;
   job.output.end = output + 1;
 
-  for (float t = -.2f; t < animation->duration() + .2f; t += .1f) {
+  for (float t = -.2f; t < 1.2f; t += .1f) {
     memset(output, 0xde, sizeof(output));
-    job.time = t;
+    job.ratio = t;
     EXPECT_TRUE(job.Validate());
     EXPECT_TRUE(job.Run());
-    EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f,
-                                                   -1.f, 0.f, 0.f, 0.f,
-                                                   5.f, 0.f, 0.f, 0.f);
-    EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                    0.f, 0.f, 0.f, 0.f,
-                                                    0.f, 0.f, 0.f, 0.f,
-                                                    1.f, 1.f, 1.f, 1.f);
-    EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f,
-                                             1.f, 1.f, 1.f, 1.f,
-                                             1.f, 1.f, 1.f, 1.f);
+    EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f, -1.f,
+                            0.f, 0.f, 0.f, 5.f, 0.f, 0.f, 0.f);
+    EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f,
+                                0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f,
+                                1.f, 1.f);
+    EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+                            1.f, 1.f, 1.f, 1.f, 1.f);
   }
-
-  ozz::memory::default_allocator()->Delete(animation);
 }
 
 TEST(Sampling1Track2Keys, SamplingJob) {
   RawAnimation raw_animation;
-  raw_animation.duration = 1.f;
+  raw_animation.duration = 46.f;
   raw_animation.tracks.resize(1);  // Adds a joint.
 
   SamplingCache cache(1);
@@ -408,8 +402,8 @@ TEST(Sampling1Track2Keys, SamplingJob) {
   raw_animation.tracks[0].translations.push_back(tkey1);  // Adds a key.
 
   AnimationBuilder builder;
-  ozz::animation::Animation* animation = builder(raw_animation);
-  ASSERT_TRUE(animation != NULL);
+  ozz::ScopedPtr<Animation> animation(builder(raw_animation));
+  ASSERT_TRUE(animation);
 
   ozz::math::SoaTransform output[1];
   memset(output, 0xde, sizeof(output));
@@ -421,81 +415,61 @@ TEST(Sampling1Track2Keys, SamplingJob) {
   job.output.end = output + 1;
 
   // Samples at t = 0.
-  job.time = 0.f;
+  job.ratio = 0.f;
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f,
-                                                  2.f, 0.f, 0.f, 0.f,
-                                                  4.f, 0.f, 0.f, 0.f);
-  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  1.f, 1.f, 1.f, 1.f);
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f,
-                                           1.f, 1.f, 1.f, 1.f,
-                                           1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f, 2.f, 0.f,
+                          0.f, 0.f, 4.f, 0.f, 0.f, 0.f);
+  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+                              0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+                          1.f, 1.f, 1.f, 1.f, 1.f);
 
   // Samples at t = tkey0.
-  job.time = tkey0.time;
+  job.ratio = tkey0.time / animation->duration();
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f,
-                                                 2.f, 0.f, 0.f, 0.f,
-                                                 4.f, 0.f, 0.f, 0.f);
-  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  1.f, 1.f, 1.f, 1.f);
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f,
-                                           1.f, 1.f, 1.f, 1.f,
-                                           1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f, 2.f, 0.f,
+                          0.f, 0.f, 4.f, 0.f, 0.f, 0.f);
+  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+                              0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+                          1.f, 1.f, 1.f, 1.f, 1.f);
 
   // Samples at t = tkey1.
-  job.time = tkey1.time;
+  job.ratio = tkey1.time / animation->duration();
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 2.f, 0.f, 0.f, 0.f,
-                                                 4.f, 0.f, 0.f, 0.f,
-                                                 8.f, 0.f, 0.f, 0.f);
-  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  1.f, 1.f, 1.f, 1.f);
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f,
-                                           1.f, 1.f, 1.f, 1.f,
-                                           1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 2.f, 0.f, 0.f, 0.f, 4.f, 0.f,
+                          0.f, 0.f, 8.f, 0.f, 0.f, 0.f);
+  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+                              0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+                          1.f, 1.f, 1.f, 1.f, 1.f);
 
-  // Samples at t = duration.
-  job.time = animation->duration();
+  // Samples at t = end.
+  job.ratio = 1.f;
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 2.f, 0.f, 0.f, 0.f,
-                                                 4.f, 0.f, 0.f, 0.f,
-                                                 8.f, 0.f, 0.f, 0.f);
-  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  1.f, 1.f, 1.f, 1.f);
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f,
-                                           1.f, 1.f, 1.f, 1.f,
-                                           1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 2.f, 0.f, 0.f, 0.f, 4.f, 0.f,
+                          0.f, 0.f, 8.f, 0.f, 0.f, 0.f);
+  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+                              0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+                          1.f, 1.f, 1.f, 1.f, 1.f);
 
   // Samples at tkey0.time < t < tkey1.time.
-  job.time = (tkey0.time + tkey1.time) / 2.f;
+  job.ratio = (tkey0.time / animation->duration() +
+               tkey1.time / animation->duration()) /
+              2.f;
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.5f, 0.f, 0.f, 0.f,
-                                                 3.f, 0.f, 0.f, 0.f,
-                                                 6.f, 0.f, 0.f, 0.f);
-  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  1.f, 1.f, 1.f, 1.f);
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f,
-                                           1.f, 1.f, 1.f, 1.f,
-                                           1.f, 1.f, 1.f, 1.f);
-
-  ozz::memory::default_allocator()->Delete(animation);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.5f, 0.f, 0.f, 0.f, 3.f, 0.f,
+                          0.f, 0.f, 6.f, 0.f, 0.f, 0.f);
+  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+                              0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+                          1.f, 1.f, 1.f, 1.f, 1.f);
 }
 
 TEST(Sampling4Track2Keys, SamplingJob) {
@@ -535,8 +509,8 @@ TEST(Sampling4Track2Keys, SamplingJob) {
   raw_animation.tracks[3].translations.push_back(tkey31);  // Adds a key.
 
   AnimationBuilder builder;
-  ozz::animation::Animation* animation = builder(raw_animation);
-  ASSERT_TRUE(animation != NULL);
+  ozz::ScopedPtr<Animation> animation(builder(raw_animation));
+  ASSERT_TRUE(animation);
 
   ozz::math::SoaTransform output[1];
   memset(output, 0xde, sizeof(output));
@@ -548,63 +522,50 @@ TEST(Sampling4Track2Keys, SamplingJob) {
   job.output.end = output + 1;
 
   // Samples at t = 0.
-  job.time = 0.f;
+  job.ratio = 0.f;
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, -1.f,
-                                                 2.f, 0.f, 0.f, -2.f,
-                                                 4.f, 0.f, 0.f, -4.f);
-  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  1.f, 1.f, 1.f, 1.f);
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 0.f, 1.f,
-                                           1.f, 1.f, 0.f, 1.f,
-                                           1.f, 1.f, 0.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, -1.f, 2.f, 0.f,
+                          0.f, -2.f, 4.f, 0.f, 0.f, -4.f);
+  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+                              0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 0.f, 1.f, 1.f, 1.f, 0.f,
+                          1.f, 1.f, 1.f, 0.f, 1.f);
 
   // Samples at t = tkey00.
-  job.time = tkey00.time;
+  job.ratio = tkey00.time / animation->duration();
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, -1.5f,
-                                                 2.f, 0.f, 0.f, -3.f,
-                                                 4.f, 0.f, 0.f, -6.f);
-  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                  0.f, .7071067f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  1.f, .7071067f, 1.f, 1.f);
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 0.f, 1.f,
-                                            1.f, 1.f, 0.f, 1.f,
-                                            1.f, 1.f, 0.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, -1.5f, 2.f, 0.f,
+                          0.f, -3.f, 4.f, 0.f, 0.f, -6.f);
+  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f,
+                              .7071067f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f,
+                              .7071067f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 0.f, 1.f, 1.f, 1.f, 0.f,
+                          1.f, 1.f, 1.f, 0.f, 1.f);
 
-  // Samples at t = duration.
-  job.time = animation->duration();
+  // Samples at t = end.
+  job.ratio = 1.f;
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 2.f, 0.f, 0.f, -2.f,
-                                                 4.f, 0.f, 0.f, -4.f,
-                                                 8.f, 0.f, 0.f, -8.f);
-  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 1.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  1.f, 0.f, 1.f, 1.f);
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, -1.f, 1.f,
-                                           1.f, 1.f, -1.f, 1.f,
-                                           1.f, 1.f, -1.f, 1.f);
-
-  ozz::memory::default_allocator()->Delete(animation);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 2.f, 0.f, 0.f, -2.f, 4.f, 0.f,
+                          0.f, -4.f, 8.f, 0.f, 0.f, -8.f);
+  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f,
+                              0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f,
+                          1.f, 1.f, 1.f, -1.f, 1.f);
 }
 
-TEST(SamplingCache, SamplingJob) {
+TEST(Cache, SamplingJob) {
   RawAnimation raw_animation;
-  raw_animation.duration = 1.f;
+  raw_animation.duration = 46.f;
   raw_animation.tracks.resize(1);  // Adds a joint.
   const RawAnimation::TranslationKey empty_key = {
       0.f, RawAnimation::TranslationKey::identity()};
   raw_animation.tracks[0].translations.push_back(empty_key);
 
   SamplingCache cache(1);
-  ozz::animation::Animation* animations[2] = {};
+  ozz::ScopedPtr<Animation> animations[2];
 
   {
     const RawAnimation::TranslationKey tkey = {
@@ -613,7 +574,7 @@ TEST(SamplingCache, SamplingJob) {
 
     AnimationBuilder builder;
     animations[0] = builder(raw_animation);
-    ASSERT_TRUE(animations[0] != NULL);
+    ASSERT_TRUE(animations[0]);
   }
   {
     const RawAnimation::TranslationKey tkey = {
@@ -622,7 +583,7 @@ TEST(SamplingCache, SamplingJob) {
 
     AnimationBuilder builder;
     animations[1] = builder(raw_animation);
-    ASSERT_TRUE(animations[1] != NULL);
+    ASSERT_TRUE(animations[1]);
   }
 
   ozz::math::SoaTransform output[1];
@@ -630,61 +591,82 @@ TEST(SamplingCache, SamplingJob) {
   SamplingJob job;
   job.animation = animations[0];
   job.cache = &cache;
+  job.ratio = 0.f;
   job.output.begin = output;
   job.output.end = output + 1;
 
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f,
-                                                  -1.f, 0.f, 0.f, 0.f,
-                                                  5.f, 0.f, 0.f, 0.f);
-  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  1.f, 1.f, 1.f, 1.f);
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f,
-                                            1.f, 1.f, 1.f, 1.f,
-                                            1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f, -1.f, 0.f,
+                          0.f, 0.f, 5.f, 0.f, 0.f, 0.f);
+  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+                              0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+                          1.f, 1.f, 1.f, 1.f, 1.f);
 
   // Re-uses cache.
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f,
-                                                  -1.f, 0.f, 0.f, 0.f,
-                                                  5.f, 0.f, 0.f, 0.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f, -1.f, 0.f,
+                          0.f, 0.f, 5.f, 0.f, 0.f, 0.f);
 
   // Invalidates cache.
   cache.Invalidate();
 
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f,
-                                                  -1.f, 0.f, 0.f, 0.f,
-                                                  5.f, 0.f, 0.f, 0.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, 1.f, 0.f, 0.f, 0.f, -1.f, 0.f,
+                          0.f, 0.f, 5.f, 0.f, 0.f, 0.f);
 
   // Changes animation.
   job.animation = animations[1];
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, -1.f, 0.f, 0.f, 0.f,
-                                                  1.f, 0.f, 0.f, 0.f,
-                                                  -5.f, 0.f, 0.f, 0.f);
-  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  0.f, 0.f, 0.f, 0.f,
-                                                  1.f, 1.f, 1.f, 1.f);
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f,
-                                            1.f, 1.f, 1.f, 1.f,
-                                            1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, -1.f, 0.f, 0.f, 0.f, 1.f, 0.f,
+                          0.f, 0.f, -5.f, 0.f, 0.f, 0.f);
+  EXPECT_SOAQUATERNION_EQ_EST(output[0].rotation, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+                              0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].scale, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+                          1.f, 1.f, 1.f, 1.f, 1.f);
 
   // Invalidates and changes animation.
   job.animation = animations[1];
   EXPECT_TRUE(job.Validate());
   EXPECT_TRUE(job.Run());
-  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, -1.f, 0.f, 0.f, 0.f,
-                                                  1.f, 0.f, 0.f, 0.f,
-                                                  -5.f, 0.f, 0.f, 0.f);
+  EXPECT_SOAFLOAT3_EQ_EST(output[0].translation, -1.f, 0.f, 0.f, 0.f, 1.f, 0.f,
+                          0.f, 0.f, -5.f, 0.f, 0.f, 0.f);
+}
 
-  ozz::memory::default_allocator()->Delete(animations[0]);
-  ozz::memory::default_allocator()->Delete(animations[1]);
+TEST(CacheResize, SamplingJob) {
+  RawAnimation raw_animation;
+  raw_animation.duration = 46.f;
+  raw_animation.tracks.resize(7);
+
+  AnimationBuilder builder;
+  ozz::ScopedPtr<Animation> animation(builder(raw_animation));
+  ASSERT_TRUE(animation);
+
+  // Empty cache by default
+  SamplingCache cache;
+
+  ozz::math::SoaTransform output[2];
+
+  SamplingJob job;
+  job.animation = animation;
+  job.cache = &cache;
+  job.ratio = 0.f;
+  job.output.begin = output;
+  job.output.end = output + 7;
+
+  // Cache is too small
+  EXPECT_FALSE(job.Validate());
+
+  // Cache is ok.
+  cache.Resize(7);
+  EXPECT_TRUE(job.Validate());
+  EXPECT_TRUE(job.Run());
+
+  // Cache is too small
+  cache.Resize(1);
+  EXPECT_FALSE(job.Validate());
 }

@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -85,10 +85,10 @@ class Animation {
   }
 
   // Gets the buffer of rotation keys.
-  ozz::Range<const RotationKey> rotations() const { return rotations_; }
+  Range<const RotationKey> rotations() const { return rotations_; }
 
   // Gets the buffer of scale keys.
-  ozz::Range<const ScaleKey> scales() const { return scales_; }
+  Range<const ScaleKey> scales() const { return scales_; }
 
   // Get the estimated animation's size in bytes.
   size_t size() const;
@@ -123,14 +123,14 @@ class Animation {
   char* name_;
 
   // Stores all translation/rotation/scale keys begin and end of buffers.
-  ozz::Range<TranslationKey> translations_;
-  ozz::Range<RotationKey> rotations_;
-  ozz::Range<ScaleKey> scales_;
+  Range<TranslationKey> translations_;
+  Range<RotationKey> rotations_;
+  Range<ScaleKey> scales_;
 };
 }  // namespace animation
 
 namespace io {
-OZZ_IO_TYPE_VERSION(4, animation::Animation)
+OZZ_IO_TYPE_VERSION(6, animation::Animation)
 OZZ_IO_TYPE_TAG("ozz-animation", animation::Animation)
 }  // namespace io
 }  // namespace ozz

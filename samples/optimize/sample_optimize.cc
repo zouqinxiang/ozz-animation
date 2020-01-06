@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -25,8 +25,6 @@
 //                                                                            //
 //----------------------------------------------------------------------------//
 
-#include <algorithm>
-
 #include "ozz/animation/runtime/animation.h"
 #include "ozz/animation/runtime/local_to_model_job.h"
 #include "ozz/animation/runtime/sampling_job.h"
@@ -37,7 +35,7 @@
 #include "ozz/animation/offline/raw_animation.h"
 #include "ozz/animation/offline/raw_animation_utils.h"
 
-#include "ozz/base/memory/allocator.h"
+#include "ozz/base/memory/scoped_ptr.h"
 
 #include "ozz/base/io/archive.h"
 #include "ozz/base/io/stream.h"
@@ -56,6 +54,8 @@
 #include "framework/renderer.h"
 #include "framework/utils.h"
 
+#include <algorithm>
+
 // Skeleton and animation file can be specified as an option.
 OZZ_OPTIONS_DECLARE_STRING(skeleton, "Path to the runtime skeleton file.",
                            "media/skeleton.ozz", false)
@@ -64,65 +64,6 @@ OZZ_OPTIONS_DECLARE_STRING(animation, "Path to the raw animation file.",
                            "media/animation_raw.ozz", false)
 
 namespace {
-
-// The next functions are used to sample a RawAnimation. This feature is not
-// part of ozz sdk, as RawAnimation is a intermediate format used to build the
-// runtime animation.
-
-// Less comparator, used by search algorithm to walk through track sorted
-// keyframes
-template <typename _Key>
-bool Less(const _Key& _left, const _Key& _right) {
-  return _left.time < _right.time;
-}
-
-// Samples a component (translation, rotation or scale) of a track.
-template <typename _Track, typename _Lerp>
-typename _Track::value_type::Value SampleComponent(const _Track& _track,
-                                                   const _Lerp& _lerp,
-                                                   float _time) {
-  if (_track.size() == 0) {
-    // Return identity if there's no key for this track.
-    return _Track::value_type::identity();
-  } else if (_time <= _track.front().time) {
-    // Returns the first keyframe if _time is before the first keyframe.
-    return _track.front().value;
-  } else if (_time >= _track.back().time) {
-    // Returns the last keyframe if _time is before the last keyframe.
-    return _track.back().value;
-  } else {
-    // Needs to interpolate the 2 keyframes before and after _time.
-    assert(_track.size() >= 2);
-    // First find the 2 keys.
-    const typename _Track::value_type cmp = {_time,
-                                             _Track::value_type::identity()};
-    typename _Track::const_pointer it =
-        std::lower_bound(array_begin(_track), array_end(_track), cmp,
-                         Less<typename _Track::value_type>);
-    assert(it > array_begin(_track) && it < array_end(_track));
-
-    // Then interpolate them at t = _time.
-    const typename _Track::const_reference right = it[0];
-    const typename _Track::const_reference left = it[-1];
-    const float alpha = (_time - left.time) / (right.time - left.time);
-    return _lerp(left.value, right.value, alpha);
-  }
-}
-
-// Samples all 3 components of a track.
-ozz::math::Transform SampleTrack(
-    const ozz::animation::offline::RawAnimation::JointTrack& _track,
-    float _time) {
-  // Samples each track's component.
-  ozz::math::Transform transform;
-  transform.translation = SampleComponent(
-      _track.translations, ozz::animation::offline::LerpTranslation, _time);
-  transform.rotation = SampleComponent(
-      _track.rotations, ozz::animation::offline::LerpRotation, _time);
-  transform.scale =
-      SampleComponent(_track.scales, ozz::animation::offline::LerpScale, _time);
-  return transform;
-}
 
 // Loads a raw animation from a file.
 bool LoadAnimation(const char* _filename,
@@ -156,46 +97,52 @@ class OptimizeSampleApplication : public ozz::sample::Application {
   OptimizeSampleApplication()
       : selected_display_(eRuntimeAnimation),
         optimize_(true),
-        cache_(NULL),
-        animation_rt_(NULL),
-        error_record_(64) {}
+        joint_setting_enable_(true),
+        joint_(0),
+        error_record_med_(64),
+        error_record_max_(64),
+        joint_error_record_(64) {}
 
  protected:
-  // Updates current animation time.
-  virtual bool OnUpdate(float _dt) {
+  // Updates current animation time and skeleton pose.
+  virtual bool OnUpdate(float _dt, float) {
     // Updates current animation time.
     controller_.Update(*animation_rt_, _dt);
 
     // Prepares sampling job.
     ozz::animation::SamplingJob sampling_job;
-    sampling_job.cache = cache_;
-    sampling_job.time = controller_.time();
+    sampling_job.cache = &cache_;
+    sampling_job.ratio = controller_.time_ratio();
 
     // Samples optimized animation (_according to the display mode).
     sampling_job.animation = animation_rt_;
-    sampling_job.output = locals_rt_;
+    sampling_job.output = make_range(locals_rt_);
     if (!sampling_job.Run()) {
       return false;
     }
 
     // Also samples non-optimized animation, from the raw animation.
-    if (!SampleRawAnimation(raw_animation_, controller_.time(), locals_raw_)) {
+    if (!SampleRawAnimation(raw_animation_,
+                            controller_.time_ratio() * raw_animation_.duration,
+                            make_range(locals_raw_))) {
       return false;
     }
 
     // Computes difference between the optimized and non-optimized animations
     // in local space, and rebinds it to the bind pose.
     {
-      const ozz::math::SoaTransform* locals_raw = locals_raw_.begin;
-      const ozz::math::SoaTransform* locals_rt = locals_rt_.begin;
-      ozz::math::SoaTransform* locals_diff = locals_diff_.begin;
-      ozz::Range<const ozz::math::SoaTransform> bind_poses =
-          skeleton_.bind_pose();
+      const ozz::Range<const ozz::math::SoaTransform>& bind_poses =
+          skeleton_.joint_bind_poses();
       const ozz::math::SoaTransform* bind_pose = bind_poses.begin;
+      const ozz::math::SoaTransform* locals_raw = array_begin(locals_raw_);
+      const ozz::math::SoaTransform* locals_rt = array_begin(locals_rt_);
+      ozz::math::SoaTransform* locals_diff = array_begin(locals_diff_);
       for (; bind_pose < bind_poses.end;
            ++locals_raw, ++locals_rt, ++locals_diff, ++bind_pose) {
-        assert(locals_raw < locals_raw_.end && locals_rt < locals_rt_.end &&
-               locals_diff < locals_diff_.end && bind_pose < bind_poses.end);
+        assert(locals_raw < array_end(locals_raw_) &&
+               locals_rt < array_end(locals_rt_) &&
+               locals_diff < array_end(locals_diff_) &&
+               bind_pose < bind_poses.end);
 
         // Computes difference.
         const ozz::math::SoaTransform diff = {
@@ -215,40 +162,40 @@ class OptimizeSampleApplication : public ozz::sample::Application {
     ltm_job.skeleton = &skeleton_;
 
     // Optimized samples.
-    ltm_job.input = locals_rt_;
-    ltm_job.output = models_rt_;
+    ltm_job.input = make_range(locals_rt_);
+    ltm_job.output = make_range(models_rt_);
     if (!ltm_job.Run()) {
       return false;
     }
 
     // Non-optimized samples (from the raw animation).
-    ltm_job.input = locals_raw_;
-    ltm_job.output = models_raw_;
+    ltm_job.input = make_range(locals_raw_);
+    ltm_job.output = make_range(models_raw_);
     if (!ltm_job.Run()) {
       return false;
     }
 
     // Difference between optimized and non-optimized samples.
-    ltm_job.input = locals_diff_;
-    ltm_job.output = models_diff_;
+    ltm_job.input = make_range(locals_diff_);
+    ltm_job.output = make_range(models_diff_);
     if (!ltm_job.Run()) {
       return false;
     }
 
     // Computes the absolute error, aka the difference between the raw and
     // runtime model space transformation.
-    float error = 0.f;
-    const ozz::math::Float4x4* models_rt = models_rt_.begin;
-    const ozz::math::Float4x4* models_raw = models_raw_.begin;
-    for (; models_rt < models_rt_.end; ++models_rt, ++models_raw) {
-      // Computes the translation difference.
-      const ozz::math::SimdFloat4 diff =
-          models_rt->cols[3] - models_raw->cols[3];
-
-      // Stores maximum error.
-      error = ozz::math::Max(error, ozz::math::GetX(ozz::math::Length3(diff)));
+    const size_t num_joints = models_rt_.size();
+    float errors_sq[ozz::animation::Skeleton::kMaxJoints];
+    for (size_t i = 0; i < num_joints; ++i) {
+      // Computes error based on the translation difference.
+      errors_sq[i] = ozz::math::GetX(ozz::math::Length3Sqr(
+          models_rt_[i].cols[3] - models_raw_[i].cols[3]));
     }
-    error_record_.Push(error * 1000.f);  // Error is in millimeters.
+
+    std::sort(errors_sq, errors_sq + models_rt_.size());
+    error_record_med_.Push(std::sqrt(errors_sq[num_joints / 2]) * 1000.f);
+    error_record_max_.Push(std::sqrt(errors_sq[num_joints - 1]) * 1000.f);
+    joint_error_record_.Push(std::sqrt(errors_sq[joint_]) * 1000.f);
 
     return true;
   }
@@ -257,14 +204,15 @@ class OptimizeSampleApplication : public ozz::sample::Application {
       const ozz::animation::offline::RawAnimation& _animation, float _time,
       ozz::Range<ozz::math::SoaTransform> _locals) {
     // Ensure output is big enough.
-    if (_locals.Count() * 4 < _animation.tracks.size() &&
-        locals_raw_aos_.Count() * 4 < _animation.tracks.size()) {
+    if (_locals.count() * 4 < _animation.tracks.size() &&
+        locals_raw_aos_.size() * 4 < _animation.tracks.size()) {
       return false;
     }
 
     // Sample raw animation and converts AoS transforms to SoA transform array.
     assert(_animation.Validate() && "Animation should be valid.");
-    for (int i = 0; i < _animation.num_tracks(); i += 4) {
+    bool success = true;
+    for (int i = 0; success && i < _animation.num_tracks(); i += 4) {
       ozz::math::SimdFloat4 translations[4];
       ozz::math::SimdFloat4 rotations[4];
       ozz::math::SimdFloat4 scales[4];
@@ -272,10 +220,10 @@ class OptimizeSampleApplication : public ozz::sample::Application {
       // Works on 4 consecutive tracks, or what remains to be processed if it's
       // lower than 4.
       const int jmax = ozz::math::Min(_animation.num_tracks() - i, 4);
-      for (int j = 0; j < jmax; ++j) {
+      for (int j = 0; success && j < jmax; ++j) {
         // Samples raw animation.
-        const ozz::math::Transform transform =
-            SampleTrack(_animation.tracks[i + j], _time);
+        ozz::math::Transform transform;
+        success &= SampleTrack(_animation.tracks[i + j], _time, &transform);
 
         // Convert transform to AoS SimdFloat4 values.
         translations[j] =
@@ -296,30 +244,43 @@ class OptimizeSampleApplication : public ozz::sample::Application {
       ozz::math::Transpose4x3(scales, &output.scale.x);
     }
 
-    return true;
+    return success;
   }
 
   // Selects model space matrices according to the display mode.
   ozz::Range<const ozz::math::Float4x4> models() const {
     switch (selected_display_) {
       case eRuntimeAnimation:
-        return models_rt_;
+        return make_range(models_rt_);
       case eRawAnimation:
-        return models_raw_;
+        return make_range(models_raw_);
       case eAbsoluteError:
-        return models_diff_;
+        return make_range(models_diff_);
       default: {
         assert(false && "Invalid display mode");
-        return models_rt_;
+        return make_range(models_rt_);
       }
     }
   }
 
   // Samples animation, transforms to model space and renders.
   virtual bool OnDisplay(ozz::sample::Renderer* _renderer) {
+    bool success = true;
+
+    const ozz::Range<const ozz::math::Float4x4> transforms = models();
+
     // Renders posture.
-    return _renderer->DrawPosture(skeleton_, models(),
-                                  ozz::math::Float4x4::identity());
+    success &= _renderer->DrawPosture(skeleton_, transforms,
+                                      ozz::math::Float4x4::identity());
+
+    if (joint_setting_enable_) {
+      // Renders an axes with targetted joint transform.
+      const ozz::math::Float4x4 axes_scale = ozz::math::Float4x4::Scaling(
+          ozz::math::simd_float4::Load1(joint_setting_.distance));
+      success &= _renderer->DrawAxes(transforms[joint_] * axes_scale);
+    }
+
+    return success;
   }
 
   virtual bool OnInitialize() {
@@ -334,35 +295,39 @@ class OptimizeSampleApplication : public ozz::sample::Application {
       return false;
     }
 
+    const int num_joints = skeleton_.num_joints();
+    const int num_soa_joints = skeleton_.num_soa_joints();
+
+    // Finds the joint where the object should be attached.
+    for (int i = 0; i < num_joints; i++) {
+      if (std::strstr(skeleton_.joint_names()[i], "L Finger2Nub")) {
+        joint_ = i;
+        break;
+      }
+    }
+
     // Builds the runtime animation from the raw one.
     if (!BuildAnimations()) {
       return false;
     }
 
     // Allocates runtime buffers.
-    ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
-    const int num_joints = skeleton_.num_joints();
-    const int num_soa_joints = skeleton_.num_soa_joints();
-
-    locals_rt_ =
-        allocator->AllocateRange<ozz::math::SoaTransform>(num_soa_joints);
-    models_rt_ = allocator->AllocateRange<ozz::math::Float4x4>(num_joints);
-    locals_raw_aos_ =
-        allocator->AllocateRange<ozz::math::Transform>(num_joints);
-    locals_raw_ =
-        allocator->AllocateRange<ozz::math::SoaTransform>(num_soa_joints);
-    models_raw_ = allocator->AllocateRange<ozz::math::Float4x4>(num_joints);
-    locals_diff_ =
-        allocator->AllocateRange<ozz::math::SoaTransform>(num_soa_joints);
-    models_diff_ = allocator->AllocateRange<ozz::math::Float4x4>(num_joints);
+    locals_rt_.resize(num_soa_joints);
+    models_rt_.resize(num_joints);
+    locals_raw_aos_.resize(num_joints);
+    locals_raw_.resize(num_soa_joints);
+    models_raw_.resize(num_joints);
+    locals_diff_.resize(num_soa_joints);
+    models_diff_.resize(num_joints);
 
     // Allocates a cache that matches animation requirements.
-    cache_ = allocator->New<ozz::animation::SamplingCache>(num_joints);
+    cache_.Resize(num_joints);
 
     return true;
   }
 
   virtual bool OnGui(ozz::sample::ImGui* _im_gui) {
+    char label[64];
     // Exposes animation runtime playback controls.
     {
       static bool open = true;
@@ -374,52 +339,46 @@ class OptimizeSampleApplication : public ozz::sample::Application {
 
     // Exposes optimizer's tolerances.
     {
-      static bool open_tol = true;
+      static bool open = true;
       ozz::sample::ImGui::OpenClose ocb(_im_gui, "Optimization tolerances",
-                                        &open_tol);
-      if (open_tol) {
+                                        &open);
+      if (open) {
         bool rebuild = false;
-        char label[64];
 
-        rebuild |= _im_gui->DoCheckBox("Enable optimzations", &optimize_);
+        rebuild |= _im_gui->DoCheckBox("Enable optimizations", &optimize_);
 
-        std::sprintf(label, "Translation : %0.2f mm",
-                     optimizer_.translation_tolerance * 1000);
-        rebuild |= _im_gui->DoSlider(
-            label, 0.f, .1f, &optimizer_.translation_tolerance, .3f, optimize_);
-
-        std::sprintf(label, "Rotation : %0.3f degree",
-                     optimizer_.rotation_tolerance * 180.f / ozz::math::kPi);
-
-        rebuild |=
-            _im_gui->DoSlider(label, 0.f, 10.f * ozz::math::kPi / 180.f,
-                              &optimizer_.rotation_tolerance, .3f, optimize_);
-
-        std::sprintf(label, "Scale : %0.3f %%",
-                     optimizer_.scale_tolerance * 100.f);
-        rebuild |= _im_gui->DoSlider(
-            label, 0.f, .1f, &optimizer_.scale_tolerance, .3f, optimize_);
-
-        std::sprintf(label, "Hierarchical : %0.2f mm",
-                     optimizer_.hierarchical_tolerance * 1000);
-        rebuild |= _im_gui->DoSlider(label, 0.f, .1f,
-                                     &optimizer_.hierarchical_tolerance, .3f,
+        std::sprintf(label, "Tolerance: %0.2f mm", setting_.tolerance * 1000);
+        rebuild |= _im_gui->DoSlider(label, 0.f, .1f, &setting_.tolerance, .5f,
                                      optimize_);
 
-        std::sprintf(label, "Animation size : %dKB",
-                     static_cast<int>(animation_rt_->size() >> 10));
+        std::sprintf(label, "Distance: %0.2f mm", setting_.distance * 1000);
+        rebuild |= _im_gui->DoSlider(label, 0.f, 1.f, &setting_.distance, .5f,
+                                     optimize_);
 
-        _im_gui->DoLabel(label);
+        rebuild |= _im_gui->DoCheckBox("Enable joint setting",
+                                       &joint_setting_enable_, optimize_);
+
+        std::sprintf(label, "%s (%d)", skeleton_.joint_names()[joint_], joint_);
+        rebuild |=
+            _im_gui->DoSlider(label, 0, skeleton_.num_joints() - 1, &joint_,
+                              1.f, joint_setting_enable_ && optimize_);
+
+        std::sprintf(label, "Tolerance: %0.2f mm",
+                     joint_setting_.tolerance * 1000);
+        rebuild |= _im_gui->DoSlider(label, 0.f, .1f, &joint_setting_.tolerance,
+                                     .5f, joint_setting_enable_ && optimize_);
+
+        std::sprintf(label, "Distance: %0.2f mm",
+                     joint_setting_.distance * 1000);
+        rebuild |= _im_gui->DoSlider(label, 0.f, 1.f, &joint_setting_.distance,
+                                     .5f, joint_setting_enable_ && optimize_);
 
         if (rebuild) {
-          // Delete current animation and rebuild one with the new tolerances.
-          ozz::memory::default_allocator()->Delete(animation_rt_);
-          animation_rt_ = NULL;
-
           // Invalidates the cache in case the new animation has the same
-          // address as the previous one. Other cases are automatic handled by
-          // the cache. See SamplingCache::Invalidate for more details.
-          cache_->Invalidate();
+          // address as the previous one. Other cases (like changing animation)
+          // are automatic handled by the cache. See SamplingCache::Invalidate
+          // for more details.
+          cache_.Invalidate();
 
           // Rebuilds a new runtime animation.
           if (!BuildAnimations()) {
@@ -427,70 +386,114 @@ class OptimizeSampleApplication : public ozz::sample::Application {
           }
         }
       }
+    }
+    {
+      static bool open = true;
+      ozz::sample::ImGui::OpenClose ocb(_im_gui, "Memory size", &open);
+      if (open) {
+        std::sprintf(label, "Original: %dKB",
+                     static_cast<int>(raw_animation_.size() >> 10));
+        _im_gui->DoLabel(label);
 
-      // Selects display mode.
-      static bool open_mode = true;
-      ozz::sample::ImGui::OpenClose mode(_im_gui, "Display mode", &open_mode);
-      if (open_mode) {
-        _im_gui->DoRadioButton(eRuntimeAnimation, "Rutime animation",
-                               &selected_display_);
-        _im_gui->DoRadioButton(eRawAnimation, "Raw animation",
-                               &selected_display_);
-        _im_gui->DoRadioButton(eAbsoluteError, "Absolute error",
-                               &selected_display_);
+        std::sprintf(label, "Optimized: %dKB (%.1f:1)",
+                     static_cast<int>(raw_optimized_animation_.size() >> 10),
+                     static_cast<float>(raw_animation_.size()) /
+                         raw_optimized_animation_.size());
+        _im_gui->DoLabel(label);
+
+        std::sprintf(
+            label, "Compressed: %dKB (%.1f:1)",
+            static_cast<int>(animation_rt_->size() >> 10),
+            static_cast<float>(raw_animation_.size()) / animation_rt_->size());
+        _im_gui->DoLabel(label);
       }
+    }
 
-      // Show absolute error.
-      {  // FPS
-        char szLabel[64];
-        ozz::sample::Record::Statistics stats = error_record_.GetStatistics();
-        static bool error_open = true;
-        ozz::sample::ImGui::OpenClose oc_stats(_im_gui, "Absolute error",
-                                               &error_open);
-        if (error_open) {
-          std::sprintf(szLabel, "Absolute error: %.2f mm",
-                       *error_record_.cursor());
-          _im_gui->DoGraph(szLabel, 0.f, stats.max, stats.latest,
-                           error_record_.cursor(), error_record_.record_begin(),
-                           error_record_.record_end());
+    // Selects display mode.
+    static bool open_mode = true;
+    ozz::sample::ImGui::OpenClose mode(_im_gui, "Display mode", &open_mode);
+    if (open_mode) {
+      _im_gui->DoRadioButton(eRuntimeAnimation, "Runtime animation",
+                             &selected_display_);
+      _im_gui->DoRadioButton(eRawAnimation, "Raw animation",
+                             &selected_display_);
+      _im_gui->DoRadioButton(eAbsoluteError, "Absolute error",
+                             &selected_display_);
+    }
+
+    // Show absolute error.
+    {
+      char szLabel[64];
+      static bool error_open = true;
+      ozz::sample::ImGui::OpenClose oc_stats(_im_gui, "Absolute error",
+                                             &error_open);
+      if (error_open) {
+        {
+          std::sprintf(szLabel, "Median error: %.2fmm",
+                       *error_record_med_.cursor());
+          const ozz::sample::Record::Statistics error_stats =
+              error_record_med_.GetStatistics();
+          _im_gui->DoGraph(szLabel, 0.f, error_stats.max, error_stats.latest,
+                           error_record_med_.cursor(),
+                           error_record_med_.record_begin(),
+                           error_record_med_.record_end());
+        }
+        {
+          std::sprintf(szLabel, "Maximum error: %.2fmm",
+                       *error_record_max_.cursor());
+          const ozz::sample::Record::Statistics error_stats =
+              error_record_max_.GetStatistics();
+          _im_gui->DoGraph(szLabel, 0.f, error_stats.max, error_stats.latest,
+                           error_record_max_.cursor(),
+                           error_record_max_.record_begin(),
+                           error_record_max_.record_end());
+        }
+        {
+          std::sprintf(szLabel, "Joint %d error: %.2fmm", joint_,
+                       *joint_error_record_.cursor());
+          const ozz::sample::Record::Statistics error_stats =
+              joint_error_record_.GetStatistics();
+          _im_gui->DoGraph(szLabel, 0.f, error_stats.max, error_stats.latest,
+                           joint_error_record_.cursor(),
+                           joint_error_record_.record_begin(),
+                           joint_error_record_.record_end());
         }
       }
     }
+
     return true;
   }
 
-  virtual void OnDestroy() {
-    ozz::memory::Allocator* allocator = ozz::memory::default_allocator();
-    allocator->Delete(animation_rt_);
-    allocator->Deallocate(locals_rt_);
-    allocator->Deallocate(models_rt_);
-    allocator->Deallocate(locals_raw_aos_);
-    allocator->Deallocate(locals_raw_);
-    allocator->Deallocate(models_raw_);
-    allocator->Deallocate(locals_diff_);
-    allocator->Deallocate(models_diff_);
-    allocator->Delete(cache_);
-  }
+  virtual void OnDestroy() {}
 
   bool BuildAnimations() {
-    assert(!animation_rt_);
-
-    // Instantiate an aniation builder.
+    // Instantiate an animation builder.
     ozz::animation::offline::AnimationBuilder animation_builder;
 
     // Builds the optimized animation.
     if (optimize_) {
-      // Optimzes the raw animation.
-      ozz::animation::offline::RawAnimation optimized_animation;
-      if (!optimizer_(raw_animation_, skeleton_, &optimized_animation)) {
+      ozz::animation::offline::AnimationOptimizer optimizer;
+
+      // Setup global optimization settings.
+      optimizer.setting = setting_;
+
+      // Setup joint specific optimization settings.
+      if (joint_setting_enable_) {
+        optimizer.joints_setting_override[joint_] = joint_setting_;
+      } else {
+        optimizer.joints_setting_override.clear();
+      }
+
+      if (!optimizer(raw_animation_, skeleton_, &raw_optimized_animation_)) {
         return false;
       }
-      // Builds runtime aniamtion from the optimized one.
-      animation_rt_ = animation_builder(optimized_animation);
     } else {
-      // Builds runtime aniamtion from the brut one.
-      animation_rt_ = animation_builder(raw_animation_);
+      // Builds runtime animation from the brute one.
+      raw_optimized_animation_ = raw_animation_;
     }
+
+    // Builds runtime animation from the optimized one.
+    animation_rt_ = animation_builder(raw_optimized_animation_);
 
     // Check if building runtime animation was successful.
     if (!animation_rt_) {
@@ -513,14 +516,22 @@ class OptimizeSampleApplication : public ozz::sample::Application {
   };
   int selected_display_;
 
-  // Select whether optimization should be perfomed.
+  // Select whether optimization should be performed.
   bool optimize_;
 
   // Imported non-optimized animation.
   ozz::animation::offline::RawAnimation raw_animation_;
 
-  // Stores the optimizer in order to expose its parameters.
-  ozz::animation::offline::AnimationOptimizer optimizer_;
+  // Optimized raw animation.
+  ozz::animation::offline::RawAnimation raw_optimized_animation_;
+
+  // Optimizer global settings.
+  ozz::animation::offline::AnimationOptimizer::Setting setting_;
+
+  // Optimizer joint specific settings.
+  bool joint_setting_enable_;
+  int joint_;
+  ozz::animation::offline::AnimationOptimizer::Setting joint_setting_;
 
   // Playback animation controller. This is a utility class that helps with
   // controlling animation playback time.
@@ -529,34 +540,36 @@ class OptimizeSampleApplication : public ozz::sample::Application {
   // Runtime skeleton.
   ozz::animation::Skeleton skeleton_;
 
-  // Sampling cache, shared accros optimized and non-optimized animations. This
+  // Sampling cache, shared across optimized and non-optimized animations. This
   // is not optimal, but it's not an issue either.
-  ozz::animation::SamplingCache* cache_;
+  ozz::animation::SamplingCache cache_;
 
   // Runtime optimized animation.
-  ozz::animation::Animation* animation_rt_;
+  ozz::ScopedPtr<ozz::animation::Animation> animation_rt_;
 
   // Buffer of local and model space transformations as sampled from the
   // rutime (optimized and compressed) animation.
-  ozz::Range<ozz::math::SoaTransform> locals_rt_;
-  ozz::Range<ozz::math::Float4x4> models_rt_;
+  ozz::Vector<ozz::math::SoaTransform>::Std locals_rt_;
+  ozz::Vector<ozz::math::Float4x4>::Std models_rt_;
 
   // Buffer of local and model space transformations as sampled from the
   // non-optimized (raw) animation.
   // Sampling the raw animation results in AoS data, meaning we have to
   // allocate AoS data and do the SoA conversion by hand.
-  ozz::Range<ozz::math::Transform> locals_raw_aos_;
-  ozz::Range<ozz::math::SoaTransform> locals_raw_;
-  ozz::Range<ozz::math::Float4x4> models_raw_;
+  ozz::Vector<ozz::math::Transform>::Std locals_raw_aos_;
+  ozz::Vector<ozz::math::SoaTransform>::Std locals_raw_;
+  ozz::Vector<ozz::math::Float4x4>::Std models_raw_;
 
   // Buffer of local and model space transformations storing samples from the
   // difference between optimized and non-optimized animations.
-  ozz::Range<ozz::math::SoaTransform> locals_diff_;
-  ozz::Range<ozz::math::Float4x4> models_diff_;
+  ozz::Vector<ozz::math::SoaTransform>::Std locals_diff_;
+  ozz::Vector<ozz::math::Float4x4>::Std models_diff_;
 
   // Record of accuracy errors produced by animation compression and
   // optimization.
-  ozz::sample::Record error_record_;
+  ozz::sample::Record error_record_med_;
+  ozz::sample::Record error_record_max_;
+  ozz::sample::Record joint_error_record_;
 };
 
 int main(int _argc, const char** _argv) {

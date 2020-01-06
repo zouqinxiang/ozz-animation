@@ -1,3 +1,4 @@
+# Framework library
 add_library(sample_framework STATIC
   application.h
   application.cc
@@ -13,6 +14,7 @@ add_library(sample_framework STATIC
   mesh.cc
   internal/camera.h
   internal/camera.cc
+  internal/icosphere.h
   internal/immediate.h
   internal/immediate.cc
   internal/imgui_impl.h
@@ -34,7 +36,7 @@ endif()
 
 target_link_libraries(sample_framework
   ozz_geometry
-  ozz_animation
+  ozz_animation_offline
   ozz_options)
 
 if(TARGET BUILD_DATA_SAMPLE)

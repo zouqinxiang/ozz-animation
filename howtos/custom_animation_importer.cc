@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -114,7 +114,7 @@ int main(int argc, char const* argv[]) {
   // ...use the animation as you want...
 
   // In the end the animation needs to be deleted.
-  ozz::memory::default_allocator()->Delete(animation);
+  OZZ_DELETE(ozz::memory::default_allocator(), animation);
 
   return EXIT_SUCCESS;
 }

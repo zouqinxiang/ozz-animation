@@ -17,7 +17,8 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_skeleton.ozz" "./media/skeleton.ozz"
   COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_walk.ozz" "./media/animation1.ozz"
   COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_jog.ozz" "./media/animation2.ozz"
-  COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_run.ozz" "./media/animation3.ozz")
+  COMMAND ${CMAKE_COMMAND} -E copy "${ozz_media_directory}/bin/alain_run.ozz" "./media/animation3.ozz"
+  VERBATIM)
 
 # Adds sample executable
 add_executable(sample_blend
@@ -42,6 +43,7 @@ if(EMSCRIPTEN)
   install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/sample_blend.html
     ${CMAKE_CURRENT_BINARY_DIR}/sample_blend.js
+    ${CMAKE_CURRENT_BINARY_DIR}/sample_blend.wasm
     DESTINATION bin/samples/blend)
 else()
   install(TARGETS sample_blend DESTINATION bin/samples/blend)

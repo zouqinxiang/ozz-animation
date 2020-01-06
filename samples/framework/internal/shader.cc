@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -31,6 +31,7 @@
 
 #include <cassert>
 #include <cstdio>
+#include <limits>
 
 #include "ozz/base/log.h"
 #include "ozz/base/maths/simd_math.h"
@@ -74,7 +75,8 @@ GLuint CompileShader(GLenum _type, int _count, const char** _src) {
   GL(GetShaderiv(shader, GL_INFO_LOG_LENGTH, &infolog_length));
   if (infolog_length > 1) {
     char* info_log =
-        memory::default_allocator()->Allocate<char>(infolog_length);
+        reinterpret_cast<char*>(memory::default_allocator()->Allocate(
+            infolog_length, OZZ_ALIGN_OF(char)));
     int chars_written = 0;
     glGetShaderInfoLog(shader, infolog_length, &chars_written, info_log);
     log::Err() << info_log << std::endl;
@@ -126,7 +128,8 @@ bool Shader::BuildFromSource(int _vertex_count, const char** _vertex,
   GL(GetProgramiv(program_, GL_INFO_LOG_LENGTH, &infolog_length));
   if (infolog_length > 1) {
     char* info_log =
-        memory::default_allocator()->Allocate<char>(infolog_length);
+        reinterpret_cast<char*>(memory::default_allocator()->Allocate(
+            infolog_length, OZZ_ALIGN_OF(char)));
     int chars_written = 0;
     glGetProgramInfoLog(program_, infolog_length, &chars_written, info_log);
     log::Err() << info_log << std::endl;
@@ -137,8 +140,11 @@ bool Shader::BuildFromSource(int _vertex_count, const char** _vertex,
 }
 
 bool Shader::BindUniform(const char* _semantic) {
+  if (!program_) {
+    return false;
+  }
   GLint location = glGetUniformLocation(program_, _semantic);
-  if (location == -1) {  // _semantic not found.
+  if (glGetError() != GL_NO_ERROR || location == -1) {  // _semantic not found.
     return false;
   }
   uniforms_.push_back(location);
@@ -146,8 +152,11 @@ bool Shader::BindUniform(const char* _semantic) {
 }
 
 bool Shader::FindAttrib(const char* _semantic) {
+  if (!program_) {
+    return false;
+  }
   GLint location = glGetAttribLocation(program_, _semantic);
-  if (location == -1) {  // _semantic not found.
+  if (glGetError() != GL_NO_ERROR || location == -1) {  // _semantic not found.
     return false;
   }
   attribs_.push_back(location);
@@ -188,7 +197,7 @@ ImmediatePCShader* ImmediatePCShader::Build() {
   const char* fs[] = {kPlatformSpecivicFSHeader, kSimplePCPS};
 
   ImmediatePCShader* shader =
-      memory::default_allocator()->New<ImmediatePCShader>();
+      OZZ_NEW(memory::default_allocator(), ImmediatePCShader);
   success &=
       shader->BuildFromSource(OZZ_ARRAY_SIZE(vs), vs, OZZ_ARRAY_SIZE(fs), fs);
 
@@ -200,7 +209,7 @@ ImmediatePCShader* ImmediatePCShader::Build() {
   success &= shader->BindUniform("u_mvp");
 
   if (!success) {
-    memory::default_allocator()->Delete(shader);
+    OZZ_DELETE(memory::default_allocator(), shader);
     shader = NULL;
   }
 
@@ -264,7 +273,7 @@ ImmediatePTCShader* ImmediatePTCShader::Build() {
   const char* fs[] = {kPlatformSpecivicFSHeader, kSimplePCPS};
 
   ImmediatePTCShader* shader =
-      memory::default_allocator()->New<ImmediatePTCShader>();
+      OZZ_NEW(memory::default_allocator(), ImmediatePTCShader);
   success &=
       shader->BuildFromSource(OZZ_ARRAY_SIZE(vs), vs, OZZ_ARRAY_SIZE(fs), fs);
 
@@ -278,7 +287,7 @@ ImmediatePTCShader* ImmediatePTCShader::Build() {
   success &= shader->BindUniform("u_texture");
 
   if (!success) {
-    memory::default_allocator()->Delete(shader);
+    OZZ_DELETE(memory::default_allocator(), shader);
     shader = NULL;
   }
 
@@ -442,13 +451,14 @@ JointShader* JointShader::Build() {
       "  return world_matrix;\n"
       "}\n";
   const char* vs[] = {kPlatformSpecivicVSHeader, kPassNoUv,
-                      GL_ARB_instanced_arrays ? "attribute mat4 joint;\n"
-                                              : "uniform mat4 joint;\n",
+                      GL_ARB_instanced_arrays_supported
+                          ? "attribute mat4 joint;\n"
+                          : "uniform mat4 joint;\n",
                       vs_joint_to_world_matrix, kShaderUberVS};
   const char* fs[] = {kPlatformSpecivicFSHeader, kShaderAmbientFct,
                       kShaderAmbientFS};
 
-  JointShader* shader = memory::default_allocator()->New<JointShader>();
+  JointShader* shader = OZZ_NEW(memory::default_allocator(), JointShader);
   success &=
       shader->BuildFromSource(OZZ_ARRAY_SIZE(vs), vs, OZZ_ARRAY_SIZE(fs), fs);
 
@@ -460,14 +470,14 @@ JointShader* JointShader::Build() {
   // Binds default uniforms
   success &= shader->BindUniform("u_mvp");
 
-  if (GL_ARB_instanced_arrays) {
+  if (GL_ARB_instanced_arrays_supported) {
     success &= shader->FindAttrib("joint");
   } else {
     success &= shader->BindUniform("joint");
   }
 
   if (!success) {
-    memory::default_allocator()->Delete(shader);
+    OZZ_DELETE(memory::default_allocator(), shader);
     shader = NULL;
   }
 
@@ -488,8 +498,9 @@ BoneShader* BoneShader::Build() {  // Builds a world matrix from joint uniforms,
       "  float bone_len = length(bone_dir);\n"
 
       "  // Setup rendering world matrix.\n"
-      "  float dot = dot(joint[2].xyz, bone_dir);\n"
-      "  vec3 binormal = abs(dot) < .01 ? joint[2].xyz : joint[1].xyz;\n"
+      "  float dot1 = dot(joint[2].xyz, bone_dir);\n"
+      "  float dot2 = dot(joint[0].xyz, bone_dir);\n"
+      "  vec3 binormal = abs(dot1) < abs(dot2) ? joint[2].xyz : joint[0].xyz;\n"
 
       "  mat4 world_matrix;\n"
       "  world_matrix[0] = vec4(bone_dir, 0.);\n"
@@ -502,13 +513,14 @@ BoneShader* BoneShader::Build() {  // Builds a world matrix from joint uniforms,
       "  return world_matrix;\n"
       "}\n";
   const char* vs[] = {kPlatformSpecivicVSHeader, kPassNoUv,
-                      GL_ARB_instanced_arrays ? "attribute mat4 joint;\n"
-                                              : "uniform mat4 joint;\n",
+                      GL_ARB_instanced_arrays_supported
+                          ? "attribute mat4 joint;\n"
+                          : "uniform mat4 joint;\n",
                       vs_joint_to_world_matrix, kShaderUberVS};
   const char* fs[] = {kPlatformSpecivicFSHeader, kShaderAmbientFct,
                       kShaderAmbientFS};
 
-  BoneShader* shader = memory::default_allocator()->New<BoneShader>();
+  BoneShader* shader = OZZ_NEW(memory::default_allocator(), BoneShader);
   success &=
       shader->BuildFromSource(OZZ_ARRAY_SIZE(vs), vs, OZZ_ARRAY_SIZE(fs), fs);
 
@@ -520,14 +532,14 @@ BoneShader* BoneShader::Build() {  // Builds a world matrix from joint uniforms,
   // Binds default uniforms
   success &= shader->BindUniform("u_mvp");
 
-  if (GL_ARB_instanced_arrays) {
+  if (GL_ARB_instanced_arrays_supported) {
     success &= shader->FindAttrib("joint");
   } else {
     success &= shader->BindUniform("joint");
   }
 
   if (!success) {
-    memory::default_allocator()->Delete(shader);
+    OZZ_DELETE(memory::default_allocator(), shader);
     shader = NULL;
   }
 
@@ -542,12 +554,12 @@ AmbientShader* AmbientShader::Build() {
   const char* fs[] = {kPlatformSpecivicFSHeader, kShaderAmbientFct,
                       kShaderAmbientFS};
 
-  AmbientShader* shader = memory::default_allocator()->New<AmbientShader>();
+  AmbientShader* shader = OZZ_NEW(memory::default_allocator(), AmbientShader);
   bool success =
       shader->InternalBuild(OZZ_ARRAY_SIZE(vs), vs, OZZ_ARRAY_SIZE(fs), fs);
 
   if (!success) {
-    memory::default_allocator()->Delete(shader);
+    OZZ_DELETE(memory::default_allocator(), shader);
     shader = NULL;
   }
 
@@ -624,7 +636,7 @@ AmbientShaderInstanced* AmbientShaderInstanced::Build() {
                       kShaderAmbientFS};
 
   AmbientShaderInstanced* shader =
-      memory::default_allocator()->New<AmbientShaderInstanced>();
+      OZZ_NEW(memory::default_allocator(), AmbientShaderInstanced);
   success &=
       shader->BuildFromSource(OZZ_ARRAY_SIZE(vs), vs, OZZ_ARRAY_SIZE(fs), fs);
 
@@ -638,7 +650,7 @@ AmbientShaderInstanced* AmbientShaderInstanced::Build() {
   success &= shader->BindUniform("u_mvp");
 
   if (!success) {
-    memory::default_allocator()->Delete(shader);
+    OZZ_DELETE(memory::default_allocator(), shader);
     shader = NULL;
   }
 
@@ -667,6 +679,10 @@ void AmbientShaderInstanced::Bind(GLsizei _models_offset,
   GL(EnableVertexAttribArray(color_attrib));
   GL(VertexAttribPointer(color_attrib, 4, GL_UNSIGNED_BYTE, GL_TRUE,
                          _color_stride, GL_PTR_OFFSET(_color_offset)));
+  if (_color_stride == 0) {
+    GL(VertexAttribDivisor_(color_attrib,
+                            std::numeric_limits<unsigned int>::max()));
+  }
 
   // Binds mw uniform
   const GLint models_attrib = attrib(3);
@@ -674,10 +690,10 @@ void AmbientShaderInstanced::Bind(GLsizei _models_offset,
   GL(EnableVertexAttribArray(models_attrib + 1));
   GL(EnableVertexAttribArray(models_attrib + 2));
   GL(EnableVertexAttribArray(models_attrib + 3));
-  GL(VertexAttribDivisorARB(models_attrib + 0, 1));
-  GL(VertexAttribDivisorARB(models_attrib + 1, 1));
-  GL(VertexAttribDivisorARB(models_attrib + 2, 1));
-  GL(VertexAttribDivisorARB(models_attrib + 3, 1));
+  GL(VertexAttribDivisor_(models_attrib + 0, 1));
+  GL(VertexAttribDivisor_(models_attrib + 1, 1));
+  GL(VertexAttribDivisor_(models_attrib + 2, 1));
+  GL(VertexAttribDivisor_(models_attrib + 3, 1));
   GL(VertexAttribPointer(models_attrib + 0, 4, GL_FLOAT, GL_FALSE,
                          sizeof(math::Float4x4),
                          GL_PTR_OFFSET(0 + _models_offset)));
@@ -702,15 +718,18 @@ void AmbientShaderInstanced::Bind(GLsizei _models_offset,
 }
 
 void AmbientShaderInstanced::Unbind() {
+  const GLint color_attrib = attrib(2);
+  GL(VertexAttribDivisor_(color_attrib, 0));
+
   const GLint models_attrib = attrib(3);
   GL(DisableVertexAttribArray(models_attrib + 0));
   GL(DisableVertexAttribArray(models_attrib + 1));
   GL(DisableVertexAttribArray(models_attrib + 2));
   GL(DisableVertexAttribArray(models_attrib + 3));
-  GL(VertexAttribDivisorARB(models_attrib + 0, 0));
-  GL(VertexAttribDivisorARB(models_attrib + 1, 0));
-  GL(VertexAttribDivisorARB(models_attrib + 2, 0));
-  GL(VertexAttribDivisorARB(models_attrib + 3, 0));
+  GL(VertexAttribDivisor_(models_attrib + 0, 0));
+  GL(VertexAttribDivisor_(models_attrib + 1, 0));
+  GL(VertexAttribDivisor_(models_attrib + 2, 0));
+  GL(VertexAttribDivisor_(models_attrib + 3, 0));
   Shader::Unbind();
 }
 
@@ -723,14 +742,14 @@ AmbientTexturedShader* AmbientTexturedShader::Build() {
                       kShaderAmbientTexturedFS};
 
   AmbientTexturedShader* shader =
-      memory::default_allocator()->New<AmbientTexturedShader>();
+      OZZ_NEW(memory::default_allocator(), AmbientTexturedShader);
   bool success =
       shader->InternalBuild(OZZ_ARRAY_SIZE(vs), vs, OZZ_ARRAY_SIZE(fs), fs);
 
   success &= shader->FindAttrib("a_uv");
 
   if (!success) {
-    memory::default_allocator()->Delete(shader);
+    OZZ_DELETE(memory::default_allocator(), shader);
     shader = NULL;
   }
 

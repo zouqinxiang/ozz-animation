@@ -18,9 +18,9 @@ Documentation and samples are available from [ozz-animation website](http://guil
 Supported platforms
 -------------------
 
-Ozz is tested on Linux, Mac OS and Windows. The run-time code (ozz_base, ozz_animation, ozz_geometry) depends only on the standard CRT and has no OS specific code, portability to any other plateform shouldn't be an issue.
+Ozz is tested on Linux, Mac OS and Windows. The run-time code (ozz_base, ozz_animation, ozz_geometry) depends only on c++03, the standard CRT and has no OS specific code, portability to any other plateform shouldn't be an issue.
 
-Samples, tools and tests depend on external libraries (glfw, Fbx SDK, gtest, ...), which could limit portability.
+Samples, tools and tests depend on external libraries (glfw, Fbx SDK, jsoncpp, gtest, ...), which could limit portability.
 
 Build status
 ------------
@@ -35,13 +35,9 @@ The dashboard for all branches is available [here](http://guillaumeblanc.github.
 Contributing
 ------------
 
-Contributions are welcome: code review, bug fix, feature implementation...
+All contributions are welcome: code reviews, bug reports, bug fixes, samples, features, platforms, testing, documentation, optimizations...
 
-ozz branching strategy follows [gitflow model](http://nvie.com/posts/a-successful-git-branching-model/). When submitting patches, please:
-  - Make pull requests to develop branch for features, to release branch for hotfixes.
-  - Do not include merge commits in pull requests; include only commits with the new relevant code.
-  - Add all relevant unit tests.
-  - Run all the tests and make sure they pass.
+Please read [CONTRIBUTING](CONTRIBUTING.md) file for more details about how to submit bugs or contribute to the code.
 
 License
 -------

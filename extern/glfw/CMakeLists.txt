@@ -14,6 +14,10 @@ if(WIN32)
     lib/win32/win32_thread.c
     lib/win32/win32_time.c
     lib/win32/win32_window.c)
+  if(MSYS OR MINGW)
+    # Disables warnings in glfw.
+    set_source_files_properties(${specific_file_list} PROPERTIES COMPILE_FLAGS "-Wno-unknown-pragmas")
+  endif()
 endif()
 
 # Samples requires X11 package on linux.
@@ -90,6 +94,8 @@ target_include_directories(glfw PUBLIC
   $<BUILD_INTERFACE:${OPENGL_INCLUDE_DIR}>)
 target_include_directories(glfw PRIVATE
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/extern/glfw/lib>)
+# Disables GL deprecation warnings on macos
+target_compile_definitions(glfw PUBLIC $<$<BOOL:APPLE>:GL_SILENCE_DEPRECATION>)
 
 target_link_libraries(glfw
   ${OPENGL_LIBRARIES}

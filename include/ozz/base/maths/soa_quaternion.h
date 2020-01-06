@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -48,8 +48,8 @@ struct SoaQuaternion {
 
   // Returns the identity SoaQuaternion.
   static OZZ_INLINE SoaQuaternion identity() {
-    const SoaQuaternion r = {simd_float4::zero(), simd_float4::zero(),
-                             simd_float4::zero(), simd_float4::one()};
+    const SimdFloat4 zero = simd_float4::zero();
+    const SoaQuaternion r = {zero, zero, zero, simd_float4::one()};
     return r;
   }
 };
@@ -65,6 +65,11 @@ OZZ_INLINE SoaQuaternion Conjugate(const SoaQuaternion& _q) {
 OZZ_INLINE SoaQuaternion operator-(const SoaQuaternion& _q) {
   const SoaQuaternion r = {-_q.x, -_q.y, -_q.z, -_q.w};
   return r;
+}
+
+// Returns the 4D dot product of quaternion _a and _b.
+OZZ_INLINE SimdFloat4 Dot(const SoaQuaternion& _a, const SoaQuaternion& _b) {
+  return _a.x * _b.x + _a.y * _b.y + _a.z * _b.z + _a.w * _b.w;
 }
 
 // Returns the normalized SoaQuaternion _q.

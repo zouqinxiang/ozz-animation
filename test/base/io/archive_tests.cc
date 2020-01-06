@@ -3,7 +3,7 @@
 // ozz-animation is hosted at http://github.com/guillaumeblanc/ozz-animation  //
 // and distributed under the MIT License (MIT).                               //
 //                                                                            //
-// Copyright (c) 2017 Guillaume Blanc                                         //
+// Copyright (c) 2019 Guillaume Blanc                                         //
 //                                                                            //
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -276,4 +276,34 @@ TEST(Tag, Archive) {
   Tagged1 it1;
   EXPECT_TRUE(i.TestTag<Tagged1>());
   EXPECT_NO_FATAL_FAILURE(i >> it1);
+}
+
+TEST(TagEOF, Archive) {
+  ozz::io::MemoryStream stream;
+  ASSERT_TRUE(stream.opened());
+
+  // Writes to archive n elements.
+  const int n_writes = 10;
+  ozz::io::OArchive o(&stream, ozz::GetNativeEndianness());
+  for (int i = 0; i < n_writes; ++i) {
+    Tagged1 ot;
+    o << ot;
+  }
+
+  // Reads from archive.
+  stream.Seek(0, ozz::io::Stream::kSet);
+  ozz::io::IArchive i(&stream);
+
+  EXPECT_FALSE(i.TestTag<Tagged2>());
+
+  // Tests and reads all objects.
+  int n_read = 0;
+  while (i.TestTag<Tagged1>()) {
+    Tagged1 it;
+    i >> it;
+    ++n_read;
+  }
+  EXPECT_EQ(n_read, n_writes);
+
+  EXPECT_FALSE(i.TestTag<Tagged2>());
 }
